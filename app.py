@@ -105,13 +105,13 @@ with st.sidebar:
     # --- [메뉴 구역] ---
     st.write("Main Service")
     if st.button("✍️ Content", key="content_btn", use_container_width=True):
-        st.session_state['current_page'] = "Content"
+        st.session_state['current_page'] = "content"
     if st.button("📜 History", key="history_btn", use_container_width=True):
-        st.session_state['current_page'] = "History"
+        st.session_state['current_page'] = "history"
     if st.button("📊 Report", key="report_btn", use_container_width=True):
-        st.session_state['current_page'] = "Report"
+        st.session_state['current_page'] = "report"
     if st.button("📈 Trend", key="trend_btn", use_container_width=True):
-        st.session_state['current_page'] = "Trend"
+        st.session_state['current_page'] = "trend"
 
     st.write("") 
     st.write("Test Menu")
@@ -128,7 +128,7 @@ with st.sidebar:
 
 # 5. 페이지 로딩 로직
 def run_page(page_name):
-    file_path = f"pages/{page_name.lower()}.py"
+    file_path = f"views/{page_name}.py"
     if os.path.exists(file_path):
         with open(file_path, encoding="utf-8") as f:
             exec(f.read(), globals())
