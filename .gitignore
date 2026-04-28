@@ -25,3 +25,6 @@ Thumbs.db
 
 # 기타 프로젝트 관련 (NiceGUI 등 사용 시 생길 수 있는 로그)
 *.log
+
+# 히스토리 관련
+histroy.db
