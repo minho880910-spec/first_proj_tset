@@ -14,12 +14,11 @@ def render_sidebar():
             "인테리어/가구", "여행/숙박", "금융/재테크", "게임/엔터", 
             "교육/도서", "자동차/모빌리티", "출산/육아", "반려동물 용품", "취미/스포츠"
         ]
-        category = st.selectbox("카테고리", categories)
-        title = st.text_area("프롬프트 입력", placeholder="예: 신제품 립스틱 출시 홍보를 위한 인스타그램 글 작성해줘\n(자세한 타겟 고객이나 강조할 특징을 함께 적어주시면 더 좋습니다.)", height=150)
-        
-        tone = st.selectbox("톤앤매너", ["전문적인", "친근한", "유머러스한", "감성적인"])
-        
+
+        title = st.text_area("프롬프트 입력", placeholder="예: 신제품 립스틱 출시 홍보를 위한 인스타그램 글 작성해줘\n(자세한 타겟 고객이나 강조할 특징을 함께 적어주시면 더 좋습니다.)", height=150, key="prompt_input")
+
         st.write("---")
+<<<<<<< HEAD
         
         # Buttons
         if st.button("🏠 첫 화면으로", use_container_width=True):
@@ -53,5 +52,19 @@ def render_sidebar():
             else:
                 st.warning("트렌드를 검색할 키워드를 입력하거나 콘텐츠를 먼저 생성해주세요.")
                 
+=======
+        st.markdown("### 📌 메뉴")
+        if st.button("📢 콘텐츠 제작", use_container_width=True):
+            st.session_state.current_view = 'result'
+            if st.session_state.get("prompt_input"):
+                st.session_state.auto_generate = True
+            
+        if st.button("🔥 인기 포스팅", use_container_width=True):
+            st.session_state.current_view = 'popular'
+            
+        if st.button("📈 최신 트렌드", use_container_width=True):
+            st.session_state.current_view = 'trends'
+
+>>>>>>> 65a3b3bf3d0950811b7ea85b5a2bc2a63e15bea8
         if st.button("🕒 히스토리", use_container_width=True):
             st.session_state.current_view = 'history'
