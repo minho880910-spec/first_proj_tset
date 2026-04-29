@@ -22,31 +22,67 @@ def render_trends():
     prompt_input = st.session_state.get("prompt_input", "").strip()
     main_keyword = prompt_input if prompt_input else category
     
+    period_label = st.session_state.get("trend_period_radio", "월간")
+    period_map = {
+        "일간": "now 1-d",
+        "주간": "now 7-d",
+        "월간": "today 1-m",
+        "연간": "today 12-m"
+    }
+    selected_period = period_map.get(period_label, "today 1-m")
+    
     # Fetch main trend data (for the left charts)
-    if ('last_main_keyword' not in st.session_state) or (st.session_state.last_main_keyword != main_keyword) or not st.session_state.get('main_trend_data'):
+    if ('last_main_keyword' not in st.session_state) or \
+       (st.session_state.last_main_keyword != main_keyword) or \
+       (st.session_state.get('last_period') != selected_period) or \
+       not st.session_state.get('main_trend_data'):
         with st.spinner(f"'{main_keyword}' 트렌드 분석 중..."):
-            main_trend_data = get_trend_summary(main_keyword)
+            main_trend_data = get_trend_summary(main_keyword, period=selected_period)
             st.session_state.main_trend_data = main_trend_data
             st.session_state.last_main_keyword = main_keyword
+            st.session_state.last_period = selected_period
 
     # Fetch category trend data (for the right list)
-    if ('last_trend_category' not in st.session_state) or (st.session_state.last_trend_category != category) or not st.session_state.get('category_trend_data'):
+    if ('last_trend_category' not in st.session_state) or \
+       (st.session_state.last_trend_category != category) or \
+       (st.session_state.get('last_cat_period') != selected_period) or \
+       not st.session_state.get('category_trend_data'):
         with st.spinner(f"'{category}' 인기검색어 가져오는 중..."):
-            category_trend_data = get_trend_summary(category)
+            category_trend_data = get_trend_summary(category, period=selected_period)
             st.session_state.category_trend_data = category_trend_data
             st.session_state.last_trend_category = category
+            st.session_state.last_cat_period = selected_period
 
     main_data = st.session_state.get('main_trend_data')
     cat_data = st.session_state.get('category_trend_data')
     
     if main_data and isinstance(main_data, dict):
         with col1:
-            st.markdown(f"### <span style='color:#0056b3'>{main_keyword}</span> 검색어 순위 근황", unsafe_allow_html=True)
+            header_col1, header_col2 = st.columns([1.5, 1])
+            with header_col1:
+                st.markdown(f"### <span style='color:#0056b3'>{main_keyword}</span> 검색어 순위 근황", unsafe_allow_html=True)
+            with header_col2:
+                # Apply custom CSS to push radio buttons down a bit or use markdown
+                st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+                st.radio(
+                    "기간 선택", 
+                    options=["일간", "주간", "월간", "연간"], 
+                    horizontal=True, 
+                    label_visibility="collapsed",
+                    key="trend_period_radio"
+                )
             
             # Line Chart
+            if period_label == "일간":
+                x_format = '%H:%M'
+            elif period_label == "연간":
+                x_format = '%Y-%m'
+            else:
+                x_format = '%m-%d'
+                
             df_time = main_data['time_series']
             chart = alt.Chart(df_time).mark_line(color='#00c853', strokeWidth=2).encode(
-                x=alt.X('date:T', title='', axis=alt.Axis(format='%m-%d', labelAngle=0, grid=False)),
+                x=alt.X('date:T', title='', axis=alt.Axis(format=x_format, labelAngle=0, grid=False)),
                 y=alt.Y('clicks:Q', title='', axis=alt.Axis(grid=True, tickCount=3))
             ).properties(height=350)
             st.altair_chart(chart, use_container_width=True)
