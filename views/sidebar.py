@@ -46,7 +46,6 @@ def render_sidebar():
         """, unsafe_allow_html=True)
         st.markdown('<div class="logo-btn-marker"></div>', unsafe_allow_html=True)
         st.button("✨ 지피지기", key="logo_btn", on_click=change_view, args=('home',))
-        st.caption("포스팅 자동 생성기")
         st.write("---")
 
         categories = [
@@ -59,7 +58,7 @@ def render_sidebar():
 
         st.write("---")
         st.markdown("### 📌 메뉴")
-        st.button("📢 콘텐츠 제작", use_container_width=True, on_click=change_view, args=('result',))
+        st.button("📢 콘텐츠 생성", use_container_width=True, on_click=change_view, args=('result',))
+        st.button("🕒 생성 내역 관리", use_container_width=True, on_click=change_view, args=('history',))
         st.button("🔥 인기 포스팅", use_container_width=True, on_click=change_view, args=('popular',))
         st.button("📈 최신 트렌드", use_container_width=True, on_click=change_view, args=('trends',))
-        st.button("🕒 포스팅 생성내역", use_container_width=True, on_click=change_view, args=('history',))
