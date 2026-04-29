@@ -60,4 +60,4 @@ def render_sidebar():
         st.button("📢 콘텐츠 제작", use_container_width=True, on_click=change_view, args=('result',))
         st.button("🔥 인기 포스팅", use_container_width=True, on_click=change_view, args=('popular',))
         st.button("📈 최신 트렌드", use_container_width=True, on_click=change_view, args=('trends',))
-        st.button("🕒 히스토리", use_container_width=True, on_click=change_view, args=('history',))
+        st.button("🕒 포스팅 생성내역", use_container_width=True, on_click=change_view, args=('history',))
