@@ -6,7 +6,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # OpenAI 클라이언트 인스턴스 생성 (API 키는 .env 파일에서 자동으로 읽어옵니다)
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = os.getenv("OPENAI_API_KEY", "dummy_key_to_prevent_startup_crash")
+try:
+    client = OpenAI(api_key=api_key)
+except Exception:
+    client = None
 
 def generate_content(category: str, title: str, tone: str) -> dict:
     """
