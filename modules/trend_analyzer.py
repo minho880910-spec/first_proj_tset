@@ -4,7 +4,7 @@ import time
 from datetime import datetime, timedelta
 import random
 
-def get_trend_summary(keyword):
+def get_trend_summary(keyword, period='today 1-m'):
     """
     Fetches Google Trends related queries and time series for the given keyword.
     If pytrends fails or data is insufficient, returns mock data for UI demonstration.
@@ -13,16 +13,27 @@ def get_trend_summary(keyword):
         return None
 
     # Default Mock Data structure
-    # Generate dates for the last 30 days
     end_date = datetime.now()
-    dates = [(end_date - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(29, -1, -1)]
     
+    if period == 'now 1-d':
+        dates = [(end_date - timedelta(hours=i)).strftime('%Y-%m-%d %H:00:00') for i in range(23, -1, -1)]
+        mock_len = 24
+    elif period == 'now 7-d':
+        dates = [(end_date - timedelta(days=i)).strftime('%Y-%m-%d 00:00:00') for i in range(6, -1, -1)]
+        mock_len = 7
+    elif period == 'today 12-m':
+        dates = [(end_date - timedelta(days=i*30)).strftime('%Y-%m-%d 00:00:00') for i in range(11, -1, -1)]
+        mock_len = 12
+    else: # 'today 1-m'
+        dates = [(end_date - timedelta(days=i)).strftime('%Y-%m-%d 00:00:00') for i in range(29, -1, -1)]
+        mock_len = 30
+        
     data = {
         "status": "success",
         "keyword": keyword,
         "time_series": pd.DataFrame({
             'date': dates,
-            'clicks': [random.randint(30, 100) for _ in range(30)]
+            'clicks': [random.randint(30, 100) for _ in range(mock_len)]
         }),
         "device_ratio": pd.DataFrame({
             'device': ['Mobile', 'PC'],
@@ -47,15 +58,15 @@ def get_trend_summary(keyword):
     try:
         pytrend = TrendReq(hl='ko-KR', tz=540)
         
-        # Build payload for the last 1 month
-        pytrend.build_payload(kw_list=[keyword], timeframe='today 1-m', geo='KR')
+        # Build payload
+        pytrend.build_payload(kw_list=[keyword], timeframe=period, geo='KR')
         
         # Get interest over time
         iot = pytrend.interest_over_time()
         if not iot.empty:
             iot = iot.reset_index()
             iot.rename(columns={'date': 'date', keyword: 'clicks'}, inplace=True)
-            iot['date'] = iot['date'].dt.strftime('%Y-%m-%d')
+            iot['date'] = iot['date'].dt.strftime('%Y-%m-%d %H:%M:%S')
             data["time_series"] = iot[['date', 'clicks']]
             
         # Get related queries
