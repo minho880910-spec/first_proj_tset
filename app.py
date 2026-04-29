@@ -36,7 +36,8 @@ st.markdown("""
         color: #6B7280;
         border: 1px solid #E5E7EB;
     }
-    section[data-testid="stSidebar"] {
+    /* Expanded state */
+    section[data-testid="stSidebar"][aria-expanded="true"] {
         width: 40vw !important;
         min-width: 40vw !important;
         max-width: 40vw !important;
