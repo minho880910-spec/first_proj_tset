@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 from modules.database import init_db
 from views.sidebar import render_sidebar
 from views.home import render_home
@@ -36,12 +37,6 @@ st.markdown("""
         color: #6B7280;
         border: 1px solid #E5E7EB;
     }
-    /* Expanded state */
-    section[data-testid="stSidebar"][aria-expanded="true"] {
-        width: 40vw !important;
-        min-width: 40vw !important;
-        max-width: 40vw !important;
-    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -55,6 +50,28 @@ if 'trend_data' not in st.session_state:
 
 # Render Sidebar
 render_sidebar()
+
+# JS to set initial sidebar width, allowing native resizing
+components.html(
+    """
+    <script>
+    const doc = window.parent.document;
+    if (!doc.getElementById('sidebar-adjuster')) {
+        const script = doc.createElement('script');
+        script.id = 'sidebar-adjuster';
+        script.innerHTML = `
+            const sidebar = document.querySelector('[data-testid="stSidebar"]');
+            if (sidebar) {
+                sidebar.style.width = '40vw';
+            }
+        `;
+        doc.body.appendChild(script);
+    }
+    </script>
+    """,
+    height=0,
+    width=0,
+)
 
 # Main Content Area Routing
 if st.session_state.current_view == 'home':
