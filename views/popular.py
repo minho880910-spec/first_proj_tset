@@ -13,8 +13,8 @@ current_dir = Path(__file__).resolve().parent
 env_path = current_dir.parent / "modules" / ".env"
 load_dotenv(dotenv_path=env_path)
 
+
 def get_naver_popular_posts(keyword, client_id, client_secret):
-    """네이버 검색 API로 블로그 목록 수집 (3열 그리드를 위해 6개 수집)"""
     url = f"https://openapi.naver.com/v1/search/blog?query={keyword}&display=6&sort=sim"
     headers = {"X-Naver-Client-Id": client_id, "X-Naver-Client-Secret": client_secret}
     try:
@@ -23,10 +23,8 @@ def get_naver_popular_posts(keyword, client_id, client_secret):
     except: return []
 
 def get_blog_content(url):
-    """블로그 본문 텍스트 크롤링"""
     try:
-        if "blog.naver.com" in url:
-            url = url.replace("blog.naver.com", "m.blog.naver.com")
+        if "blog.naver.com" in url: url = url.replace("blog.naver.com", "m.blog.naver.com")
         headers = {"User-Agent": "Mozilla/5.0"}
         res = requests.get(url, headers=headers, timeout=5)
         soup = BeautifulSoup(res.text, 'html.parser')
@@ -35,7 +33,6 @@ def get_blog_content(url):
     except: return ""
 
 def get_blog_comments(url):
-    """네이버 댓글 수집"""
     try:
         if "blog.naver.com" not in url: return ""
         match = re.search(r"blogId=(.*?)&logNo=(\d+)", url)
@@ -50,45 +47,47 @@ def get_blog_comments(url):
     except: return "댓글 수집 불가"
 
 def analyze_with_ai(data_bundle, api_key, platform="NAVER"):
-    """AI 트렌드 분석: 가독성 중심 요약 리포트 생성"""
     if not api_key: return "API 키가 없습니다."
     client = OpenAI(api_key=api_key)
     
     prompt = f"""
-    당신은 전문 트렌드 분석가입니다. 제공된 {platform} 데이터를 분석하여 다음 형식을 엄격히 준수해 답변하세요.
-    (주의: 매체명인 '{platform}'은 절대 한글로 번역하지 말고 영문 그대로 표기하세요.)
+    분석 데이터를 바탕으로 반드시 아래 HTML 구조 '하나'만 출력하세요. 
+    마크다운 기호(```)나 추가 설명은 절대 금지합니다.
 
-    [출력 형식]:
-    최신 트렌드 :
-    - 해당 매체의 성향을 반영한 트렌드 요약 첫 번째 문장
-    - 해당 매체의 성향을 반영한 트렌드 요약 두 번째 문장
-    - 해당 매체의 성향을 반영한 트렌드 요약 세 번째 문장
+    <div style="background-color: #f8f9fa; border-radius: 20px; padding: 5px 10px 20px 30px; border: 1px solid #e9ecef;">
+        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 1.8rem; font-weight: bold;">🤖 최신 트렌드</h2>
+        <ul style="color: #444; line-height: 1.6; font-size: 1.1rem; margin: 0 0 5px 0; padding-left: 20px;">
+            <li style="margin-bottom: 5px;">분석 내용 1</li>
+            <li style="margin-bottom: 5px;">분석 내용 2</li>
+            <li style="margin-bottom: 5px;">분석 내용 3</li>
+        </ul>
+        <h2 style="margin: 0 0 10px 0; color: #333; font-size: 1.8rem; font-weight: bold;">🤖 Keyword</h2>
+        <p style="color: #0366d6; font-weight: bold; font-size: 1.2rem; margin: 0; line-height: 1.4;">
+            #키워드1 #키워드2 #키워드3 #키워드4 #키워드5 #키워드6
+        </p>
+    </div>
 
-    (이 사이에 반드시 빈 줄 한 칸을 비울 것)
-
-    Keyword : #키워드1 #키워드2 #키워드3 #키워드4 #키워드5
-
-    주의: 각 요약 문장은 한 줄씩 가독성 있게 작성하고, 섹션 사이 빈 줄을 반드시 포함하세요.
     데이터: {data_bundle}
     """
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
-            messages=[{"role": "system", "content": f"{platform} 전문 트렌드 분석가입니다."},
+            messages=[{"role": "system", "content": "You only output pure HTML tags without backticks."},
                       {"role": "user", "content": prompt}],
-            temperature=0.7
+            temperature=0.1
         )
         return response.choices[0].message.content
-    except: return "데이터 분석 중 오류가 발생했습니다."
+    except: return "분석 중 오류 발생"
+
 
 def render_sns_section(platform_name, keyword, api_key):
-    """SNS용 AI 리포트와 3열 그리드 가상 게시글 출력"""
-    dummy_bundle = f"{platform_name} 내 '{keyword}' 관련 언급량과 유저 반응이 급증하고 있음."
+    dummy_bundle = f"{platform_name}에서 '{keyword}' 관련 언급량 급증함."
     with st.spinner(f"{platform_name} 분석 중..."):
         report = analyze_with_ai(dummy_bundle, api_key, platform_name)
-        st.info(report)
+        clean_report = report.replace('```html', '').replace('```', '').strip()
+        st.markdown(clean_report, unsafe_allow_html=True)
     
-    st.divider()
+    st.write("") 
 
     def get_platform_dummies(p_name, kw, idx):
         if p_name == "Instagram":
@@ -140,35 +139,30 @@ def render_sns_section(platform_name, keyword, api_key):
         content, tag = get_platform_dummies(platform_name, keyword, i)
         user_id = f"{platform_name.lower()}_user_{i+101}"
         with cols[i % 3]:
-            card_html = f"""
+            st.markdown(f"""
             <div style="
-                border: 1px solid #e1e4e8; padding: 18px; border-radius: 15px; 
-                margin-bottom: 20px; background-color: white; height: 210px;
+                border: 1px solid #e1e4e8; padding: 15px; border-radius: 12px; 
+                margin-bottom: 8px; background-color: white; min-height: 150px;
                 display: flex; flex-direction: column; justify-content: space-between;
-                box-shadow: 2px 2px 8px rgba(0,0,0,0.03);">
+                box-shadow: 1px 1px 3px rgba(0,0,0,0.02);">
                 <div>
-                    <p style="font-size: 0.8rem; color: #888; font-weight: bold; margin-bottom: 8px;">@{user_id}</p>
-                    <p style="font-size: 0.95rem; font-weight: 500; line-height:1.4; color: #222;">{content}</p>
+                    <p style="font-size: 0.75rem; color: #888; font-weight: bold; margin-bottom: 5px;">@{user_id}</p>
+                    <p style="font-size: 0.85rem; font-weight: 500; line-height:1.4; color: #222; margin-bottom: 5px;">{content}</p>
                 </div>
-                <p style="color: #0366d6; font-size: 0.8rem; margin: 0;">{tag}</p>
+                <p style="color: #0366d6; font-size: 0.75rem; margin: 0;">{tag}</p>
             </div>
-            """
-            st.markdown(card_html, unsafe_allow_html=True)
+            """, unsafe_allow_html=True)
+
 
 def render_popular():
     st.header("✨ AI 트렌드 & 인기 게시글 TOP")
     
-    c_id = os.getenv("NAVER_CLIENT_ID")
-    c_secret = os.getenv("NAVER_CLIENT_SECRET")
     openai_key = os.getenv("OPENAI_API_KEY")
-
-    if not all([c_id, c_secret, openai_key]):
-        st.error("⚠️ API 설정을 확인해주세요.")
-        return
+    c_id, c_secret = os.getenv("NAVER_CLIENT_ID"), os.getenv("NAVER_CLIENT_SECRET")
 
     prompt_input = st.session_state.get("prompt_input", "").strip()
     if not prompt_input:
-        st.info("💡 프롬프트를 입력하면 매체별 분석이 시작됩니다.")
+        st.info("💡 프롬프트를 입력하면 분석이 시작됩니다.")
         return
 
     if st.session_state.get("last_prompt_for_keyword") != prompt_input:
@@ -182,7 +176,7 @@ def render_popular():
 
     with tab_naver:
         if search_query and st.session_state.get("last_query") != search_query:
-            with st.spinner(f"🔍 NAVER 분석 리포트 생성 중..."):
+            with st.spinner(f"🔍 NAVER 분석 중..."):
                 items = get_naver_popular_posts(search_query, c_id, c_secret)
                 if items:
                     analysis_data = ""
@@ -192,67 +186,58 @@ def render_popular():
                         analysis_data += f"\n제목:{item['title']}\n본문:{text}\n댓글:{comments}\n"
                         processed_items.append({
                             "title": item['title'].replace("<b>","").replace("</b>",""),
-                            "author": item['bloggername'], 
-                            "date": item['postdate'],
-                            "desc": item['description'].replace("<b>","").replace("</b>",""), 
-                            "link": item['link']
+                            "author": item['bloggername'], "date": item['postdate'],
+                            "desc": item['description'].replace("<b>","").replace("</b>",""), "link": item['link']
                         })
                     st.session_state.popular_summary = analyze_with_ai(analysis_data, openai_key, "NAVER")
                     st.session_state.popular_items = processed_items
                     st.session_state.last_query = search_query
 
         if "popular_items" in st.session_state:
-            st.info(st.session_state.popular_summary)
-            st.divider()
+            summary = st.session_state.popular_summary.replace('```html', '').replace('```', '').strip()
+            st.markdown(summary, unsafe_allow_html=True)
+            
+            st.write("")
             
             cols = st.columns(3)
             for i, item in enumerate(st.session_state.popular_items):
                 with cols[i % 3]:
                     st.markdown(f"""
                     <div style="
-                        border: 1px solid #e1e4e8; 
-                        padding: 20px; 
-                        border-radius: 15px; 
-                        margin-bottom: 20px; 
-                        background-color: white; 
-                        height: 380px; 
-                        display: flex; 
-                        flex-direction: column; 
-                        justify-content: space-between;
-                        box-shadow: 2px 2px 10px rgba(0,0,0,0.05);
+                        border: 1px solid #e1e4e8; padding: 18px; border-radius: 12px; 
+                        margin-bottom: 10px; background-color: white; min-height: 260px; 
+                        display: flex; flex-direction: column; justify-content: space-between;
+                        box-shadow: 1px 1px 5px rgba(0,0,0,0.04);
                     ">
                         <div>
-                            <h4 style="margin: 0 0 10px 0; font-size: 1.1rem; color: #1a1a1a; line-height: 1.4;">
+                            <h5 style="margin: 0 0 8px 0; font-size: 0.95rem; color: #1a1a1a; line-height: 1.4;">
                                 {i+1}. {item['title']}
-                            </h4>
-                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 15px;">
-                                <span style="font-size: 1.2rem;">✍️</span>
-                                <span style="font-size: 0.85rem; color: #555; font-weight: bold;">{item['author']}</span>
-                                <span style="font-size: 0.85rem; color: #999;">| 📅 {item['date']}</span>
+                            </h5>
+                            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 8px;">
+                                <span style="font-size: 0.8rem;">✍️</span>
+                                <span style="font-size: 0.75rem; color: #555; font-weight: bold;">{item['author']}</span>
+                                <span style="font-size: 0.75rem; color: #999;">| 📅 {item['date']}</span>
                             </div>
-                            <p style="font-size: 0.9rem; color: #666; line-height: 1.6; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical;">
-                                {item['desc']}...
+                            <p style="font-size: 0.85rem; color: #666; line-height: 1.5; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; margin-bottom: 8px;">
+                                {item['desc']}
                             </p>
                         </div>
-                        <div style="margin-top: 15px;">
+                        <div style="margin-top: auto;">
                             <a href="{item['link']}" target="_blank" style="
                                 display: inline-block;
-                                padding: 8px 16px;
-                                background-color: #f8f9fa;
+                                padding: 5px 12px;
+                                background-color: #ffffff;
                                 border: 1px solid #ddd;
-                                border-radius: 5px;
+                                border-radius: 4px;
                                 color: #333;
                                 text-decoration: none;
-                                font-size: 0.85rem;
+                                font-size: 0.75rem;
                                 font-weight: bold;
                             ">원본 포스팅 보기</a>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
 
-    with tab_insta:
-        render_sns_section("Instagram", search_query, openai_key)
-    with tab_threads:
-        render_sns_section("Threads", search_query, openai_key)
-    with tab_x:
-        render_sns_section("X", search_query, openai_key)
+    with tab_insta: render_sns_section("Instagram", search_query, openai_key)
+    with tab_threads: render_sns_section("Threads", search_query, openai_key)
+    with tab_x: render_sns_section("X", search_query, openai_key)
