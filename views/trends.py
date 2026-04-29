@@ -1,7 +1,47 @@
+import os
 import streamlit as st
 import altair as alt
+from openai import OpenAI
 from modules.trend_analyzer import get_trend_summary
 from modules.keyword_extractor import extract_keyword
+
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+
+def classify_category(keyword: str, categories: list) -> str:
+    """
+    추출된 키워드를 주어진 카테고리 목록 중 하나로 분류합니다.
+    매칭되는 카테고리가 없으면 '해당 카테고리 없음'을 반환합니다.
+    """
+    if not keyword:
+        return "해당 카테고리 없음"
+        
+    categories_str = ", ".join(categories)
+    system_prompt = (
+        f"당신은 검색어 키워드를 다음 주어진 카테고리 중 하나로 분류하는 전문가입니다.\n"
+        f"카테고리 목록: [{categories_str}]\n"
+        f"사용자의 키워드가 위 카테고리 중 어디에 속하는지 판단하여, 오직 해당 카테고리 이름만 정확하게 출력하세요.\n"
+        f"만약 키워드가 어느 카테고리에도 명확히 속하지 않는다면, '해당 카테고리 없음'이라고 출력하세요.\n"
+        f"어떠한 설명이나 추가 문구 없이 카테고리명만 출력해야 합니다."
+    )
+    
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": keyword}
+            ],
+            temperature=0.1
+        )
+        category = response.choices[0].message.content.strip()
+        category = category.replace('"', '').replace("'", "").rstrip('.')
+        
+        if category in categories:
+            return category
+        return "해당 카테고리 없음"
+    except Exception as e:
+        print(f"Category classification error: {e}")
+        return "해당 카테고리 없음"
 
 def render_trends():
     st.header("📈 최신 트렌드")
@@ -9,27 +49,31 @@ def render_trends():
     categories = [
         "화장품/뷰티", "IT/가전", "패션/의류", "식품/건강", 
         "인테리어/가구", "여행/숙박", "금융/재테크", "게임/엔터", 
-        "교육/도서", "자동차/모빌리티", "출산/육아", "반려동물 용품", "취미/스포츠"
+        "교육/도서", "자동차/모빌리티", "출산/육아", "반려동물 용품", "취미/스포츠", "해당 카테고리 없음"
     ]
     
     col1, col2 = st.columns([2.5, 1])
+    
+    prompt_input = st.session_state.get("prompt_input", "").strip()
+    
+    if prompt_input:
+        if ('last_prompt_for_keyword' not in st.session_state) or (st.session_state.last_prompt_for_keyword != prompt_input):
+            with st.spinner("프롬프트에서 핵심 키워드 및 카테고리 분석 중..."):
+                extracted_keyword = extract_keyword(prompt_input)
+                mapped_category = classify_category(extracted_keyword, categories[:-1])
+                
+                st.session_state.extracted_keyword = extracted_keyword
+                st.session_state.trend_category = mapped_category
+                st.session_state.last_prompt_for_keyword = prompt_input
+                
+        main_keyword = st.session_state.extracted_keyword
     
     with col2:
         keyword_related_container = st.container()
         st.divider()
         category = st.selectbox("카테고리 선택", categories, key="trend_category", label_visibility="collapsed")
-            
-    # Use prompt input for main analysis, fallback to category if empty
-    prompt_input = st.session_state.get("prompt_input", "").strip()
-    
-    if prompt_input:
-        if ('last_prompt_for_keyword' not in st.session_state) or (st.session_state.last_prompt_for_keyword != prompt_input):
-            with st.spinner("프롬프트에서 핵심 키워드를 추출하는 중..."):
-                st.session_state.extracted_keyword = extract_keyword(prompt_input)
-                st.session_state.last_prompt_for_keyword = prompt_input
         
-        main_keyword = st.session_state.extracted_keyword
-    else:
+    if not prompt_input:
         main_keyword = category
     
     selected_period = "now 7-d"
