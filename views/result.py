@@ -4,7 +4,7 @@ from modules.database import add_history
 
 def render_result():
 
-    st.header("✨ 콘텐츠 제작")
+    st.header("📢 콘텐츠 생성")
     
     tone_options = ["전문적인", "친근한", "유머러스한", "감성적인", "직접 입력"]
     selected_tone = st.selectbox("어떤 느낌으로 쓸까요?💬", tone_options, key="tone_select")
