@@ -14,6 +14,8 @@ def render_trends():
     col1, col2 = st.columns([2.5, 1])
     
     with col2:
+        keyword_related_container = st.container()
+        st.divider()
         category = st.selectbox("카테고리 선택", categories, key="trend_category", label_visibility="collapsed")
             
     # Use prompt input for main analysis, fallback to category if empty
@@ -86,14 +88,30 @@ def render_trends():
                 ).properties(height=250)
                 st.altair_chart(age_chart, use_container_width=True)
                 
-        with col2:
-            st.markdown("#### 인기검색어")
+        with keyword_related_container:
+            st.markdown(f"#### {main_keyword} 연관 검색어")
             st.caption("최근 1개월 기준")
             
-            queries = cat_data['top_queries'] if cat_data and isinstance(cat_data, dict) else []
+            main_queries = main_data.get('top_queries', []) if main_data and isinstance(main_data, dict) else []
+            
+            if main_queries:
+                html_content_main = "<div style='background-color: #e8f5e9; border: 1px solid #c8e6c9; padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; margin-bottom: 10px;'>"
+                for i, q in enumerate(main_queries):
+                    if q:
+                        html_content_main += f"<div style='margin-bottom: 10px; font-size: 15px;'><strong style='color: #2e7d32; width: 25px; display: inline-block;'>{i+1}</strong> <span>{q}</span></div>"
+                html_content_main += "</div>"
+                st.markdown(html_content_main, unsafe_allow_html=True)
+            else:
+                st.info("연관 검색어 데이터가 없습니다.")
+
+        with col2:
+            st.markdown("#### 인기검색어")
+            st.caption(f"'{category}' 카테고리 (최근 1개월)")
+            
+            queries = cat_data.get('top_queries', []) if cat_data and isinstance(cat_data, dict) else []
             
             if queries:
-                html_content = "<div style='background-color: #f9f9fc; border: 1px solid #e0e0e0; padding: 15px; border-radius: 10px; height: 500px; overflow-y: auto;'>"
+                html_content = "<div style='background-color: #f9f9fc; border: 1px solid #e0e0e0; padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto;'>"
                 for i, q in enumerate(queries):
                     if q:
                         html_content += f"<div style='margin-bottom: 10px; font-size: 15px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> <span>{q}</span></div>"
