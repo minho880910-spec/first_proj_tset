@@ -7,7 +7,7 @@ import os
 def render(tab_name: str, prompt_input: str, global_main_keyword: str):
     main_keyword = global_main_keyword
     
-    # 레이아웃 정의
+    # 1. 레이아웃 설정
     col1, col2 = st.columns([2.5, 1])
     bot_col1, bot_col2 = st.columns([2.5, 1])
     
@@ -24,14 +24,14 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             map_container = st.container()
             
     with bot_col2:
-        st.markdown("#### ❓ 함께 많이 찾는 질문 (FAQ) ❓")
+        st.markdown("#### ❓ 함께 많이 찾는 질문 (FAQ) ❓", unsafe_allow_html=True)
         faqs_container = st.container()
 
-    # 데이터 가져오기 (fetch_trend_data 내부에서 'top_queries'를 반환해야 함)
+    # 2. 데이터 가져오기
     main_data, cat_data = fetch_trend_data(tab_name, main_keyword)
 
     if main_data and isinstance(main_data, dict):
-        # 1. 트렌드 추이 그래프 (왼쪽 상단)
+        # --- [상단 왼쪽] 트렌드 추이 ---
         with col1:
             st.markdown(f"### <span style='color:#448aff'>{main_keyword}</span> 트렌드 추이", unsafe_allow_html=True)
             df_time = main_data.get('time_series')
@@ -42,60 +42,60 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-        # 2. 급상승 관련 검색어 (오른쪽 상단) - 이 부분이 복구되었습니다.
+        # --- [상단 오른쪽] 급상승 관련 검색어 ---
         with keyword_related_container:
             st.markdown(f"#### <span style='color:#448aff'>{main_keyword}</span> 급상승 관련어", unsafe_allow_html=True)
             main_queries = main_data.get('top_queries', [])
-            
             if main_queries:
                 html_bg = "background-color: #1a1b26; border: 1px solid #292e42;"
                 html_content = f"<div style='{html_bg} padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>"
                 for i, q in enumerate(main_queries[:7]):
-                    html_content += f"<div style='display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 15px;'><div style='display:flex;'><strong style='color: #448aff; width: 25px;'>{i+1}</strong> <span>{q}</span></div></div>"
+                    html_content += f"<div style='display: flex; margin-bottom: 10px; font-size: 15px;'><strong style='color: #448aff; width: 25px;'>{i+1}</strong> <span>{q}</span></div>"
                 html_content += "</div>"
                 st.markdown(html_content, unsafe_allow_html=True)
             else:
-                st.info("연관 검색어 데이터가 없습니다.")
+                st.info("연관 검색어가 없습니다.")
 
-        # 3. 지도 로딩
-        # --- 지도 이미지 로딩 로직 (강화형) ---
+        # --- [하단 왼쪽] 지도 로딩 (경로 수정됨) ---
         with map_container:
             try:
-                # 1. 절대 경로 추출
-                # __file__은 views/google_tab.py를 가리킴
-                current_file_path = os.path.abspath(__file__)
-                # views 폴더
-                views_dir = os.path.dirname(current_file_path)
-                # 프로젝트 최상단(Root)
-                project_root = os.path.dirname(views_dir)
-                
-                # 2. 최종 경로 생성
+                # 현재 파일: /mount/src/first_proj_test/views/google_tab.py
+                current_dir = os.path.dirname(os.path.abspath(__file__)) # views 폴더
+                project_root = os.path.dirname(current_dir) # first_proj_test (최상단)
                 map_path = os.path.join(project_root, "assets", "korea_map.png")
 
-                # 3. 파일 존재 여부 확인 및 로딩
                 if os.path.exists(map_path):
-                    with open(map_path, "rb") as image_file:
-                        encoded_string = base64.b64encode(image_file.read()).decode()
-                        st.markdown(
-                            f"""
-                            <div style="text-align: center;">
-                                <img src="data:image/png;base64,{encoded_string}" 
-                                     style="width: 100%; max-width: 400px; border-radius: 10px; filter: drop-shadow(0px 4px 10px rgba(0,0,0,0.3));">
-                            </div>
-                            """, 
-                            unsafe_allow_html=True
-                        )
+                    with open(map_path, "rb") as f:
+                        encoded = base64.b64encode(f.read()).decode()
+                        st.markdown(f"<img src='data:image/png;base64,{encoded}' style='width: 100%; border-radius: 10px;'>", unsafe_allow_html=True)
                 else:
-                    # 파일이 없을 경우 실제 경로를 화면에 출력해서 디버깅 도와줌
-                    st.error(f"⚠️ 파일을 찾을 수 없습니다.")
-                    st.caption(f"찾으려는 경로: {map_path}")
-                    
+                    st.error(f"지도를 찾을 수 없습니다.")
+                    # 디버깅용 (필요 없으면 삭제하세요)
+                    st.caption(f"시도한 경로: {map_path}")
             except Exception as e:
-                st.error(f"❌ 이미지 로딩 중 오류 발생: {e}")
+                st.error("지도 로드 실패")
 
-        # 4. 지역 랭킹 및 FAQ (하단)
+        # --- [하단 중앙] 전국 랭킹 ---
         with rankings_container:
-            pass
-        
+            region_ranking = main_data.get('region_ranking')
+            if region_ranking is not None and not region_ranking.empty:
+                rank_html = "<div style='padding: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>"
+                for i, row in region_ranking.iterrows():
+                    icon = "🔥 핫" if row['score'] > 75 else "☁️ 쿨"
+                    rank_html += f"<div style='display: flex; justify-content: space-between; margin-bottom: 15px;'><div style='display:flex;'><strong style='color: #448aff; width: 25px;'>{i+1}</strong> <span>{row['region']} ({row['score']})</span></div> <span>{icon}</span></div>"
+                rank_html += "</div>"
+                st.markdown(rank_html, unsafe_allow_html=True)
+            else:
+                st.info("랭킹 데이터가 없습니다.")
+
+        # --- [하단 오른쪽] FAQ ---
         with faqs_container:
-            pass
+            faqs = main_data.get('faqs', [])
+            if faqs:
+                faq_html = "<div style='background-color: #1a1b26; border: 1px solid #292e42; padding: 15px; border-radius: 10px; height: 350px; overflow-y: auto; color: #a9b1d6;'>"
+                for faq in faqs:
+                    faq_html += f"<div style='margin-bottom: 20px;'>• {faq}</div>"
+                faq_html += "</div>"
+                st.markdown(faq_html, unsafe_allow_html=True)
+            else:
+                st.info("FAQ 데이터가 없습니다.")
