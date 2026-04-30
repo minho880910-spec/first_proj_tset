@@ -35,29 +35,33 @@ def get_naver_category_id(category_name):
 def fetch_naver_shopping_api(keyword, category_name=None):
     client_id = os.getenv("NAVER_CLIENT_ID")
     client_secret = os.getenv("NAVER_CLIENT_SECRET")
+    
+    # 1. URL 재확인 (주소 끝에 슬래시나 오타가 없는지 확인)
     url = "https://openapi.naver.com/v1/datalab/shopping/category/trend"
 
-    # 1. 키 로드 확인
     if not client_id or not client_secret:
-        st.error("API 키가 로드되지 않았습니다. .env 파일 위치를 확인하세요.")
         return None
 
-    # 2. 카테고리 ID 설정
-    # main_keyword가 카테고리 이름일 수도 있고, 프롬프트 키워드일 수도 있음
     cat_id = get_naver_category_id(category_name if category_name else keyword)
     
+    # 날짜 설정
     end_date = datetime.now().strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d') # 기간을 30일로 늘려 데이터 확보
+    start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
 
+    # 2. Body 구조 수정: ages가 빈 리스트일 때 오류가 날 수 있으므로 
+    # 특정 조건이 없다면 필드 자체를 제외하거나 기본값을 명시적으로 전달하지 않아야 할 때가 있습니다.
     body = {
         "startDate": start_date,
         "endDate": end_date,
         "timeUnit": "date",
         "category": cat_id,
-        "device": "",
-        "gender": "",
-        "ages": []
+        # device, gender, ages를 빈 값으로 보내지 말고 필요 없으면 키 자체를 빼거나 제거해봅니다.
     }
+    
+    # 네이버 API 가이드에 따라 필수값이 아닌 파라미터는 제거하는 것이 가장 안전합니다.
+    # 만약 특정 필드를 필수로 요구한다면 아래와 같이 세팅하세요.
+    # "device": "", "gender": "", "ages": [] 부분을 지우고 실행해 보세요.
+
     headers = {
         "X-Naver-Client-Id": client_id,
         "X-Naver-Client-Secret": client_secret,
@@ -65,17 +69,14 @@ def fetch_naver_shopping_api(keyword, category_name=None):
     }
 
     try:
+        # json=body를 통해 자동으로 JSON 직렬화 수행
         response = requests.post(url, json=body, headers=headers)
+        
         if response.status_code == 200:
             res = response.json()
-            if not res['results'][0]['data']:
-                st.warning(f"'{keyword}'에 대한 최근 데이터가 없습니다.")
-                return None
-                
             data = res['results'][0]['data']
             df_time = pd.DataFrame(data).rename(columns={'period': 'date', 'ratio': 'clicks'})
             
-            # 실제 서비스 구조에 맞춘 반환
             return {
                 'time_series': df_time,
                 'device_ratio': pd.DataFrame([{'device': 'PC', 'value': 30}, {'device': '모바일', 'value': 70}]),
@@ -84,15 +85,15 @@ def fetch_naver_shopping_api(keyword, category_name=None):
                     {'age': '10-20대', 'value': 20}, {'age': '30대', 'value': 40}, 
                     {'age': '40대', 'value': 25}, {'age': '50대+', 'value': 15}
                 ]),
-                'top_queries': [f"{keyword} 추천", f"{keyword} 순위", f"{keyword} 브랜드"]
+                'top_queries': [f"{keyword} 추천", f"{keyword} 인기", f"{keyword} 브랜드"]
             }
         else:
-            # 🔴 에러 디버깅 정보 출력 (문제가 해결되면 삭제하세요)
+            # 여전히 에러가 난다면 여기서 상세 메시지 확인
             st.error(f"Naver API 오류: {response.status_code}")
-            st.json(response.json()) 
+            st.write(response.json())
             return None
     except Exception as e:
-        st.error(f"연결 오류: {str(e)}")
+        st.error(f"연결 오류: {e}")
         return None
 
 def fetch_trend_data(tab_name: str, main_keyword: str, category: str = None, selected_period: str = "now 7-d"):
