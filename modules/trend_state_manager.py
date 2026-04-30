@@ -4,6 +4,7 @@ import requests
 import pandas as pd
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
+from modules.trend_analyzer import get_trend_summary 
 
 load_dotenv()
 
