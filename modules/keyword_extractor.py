@@ -1,12 +1,14 @@
 import os
 from openai import OpenAI
 from dotenv import load_dotenv
+import streamlit as st
 
 # 환경 변수 로드
 load_dotenv()
 
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
 # OpenAI 클라이언트 인스턴스 생성
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+client = OpenAI(api_key=api_key)
 
 def extract_keyword(prompt_text: str) -> str:
     """

@@ -157,9 +157,11 @@ def render_sns_section(platform_name, keyword, api_key):
 def render_popular():
     st.header("🔥 인기 포스팅")
     
-    openai_key = os.getenv("OPENAI_API_KEY")
-    c_id, c_secret = os.getenv("NAVER_CLIENT_ID"), os.getenv("NAVER_CLIENT_SECRET")
+    # openai_key = os.getenv("OPENAI_API_KEY")
+    openai_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    c_id, c_secret = st.secrets.get("NAVER_CLIENT_ID") or os.getenv("NAVER_CLIENT_ID"), st.secrets.get("OPENAINAVER_CLIENT_SECRET") or os.getenv("NAVER_CLIENT_SECRET")
 
+    
     prompt_input = st.session_state.get("prompt_input", "").strip()
     if not prompt_input:
         st.info("💡 프롬프트를 입력하면 분석이 시작됩니다.")

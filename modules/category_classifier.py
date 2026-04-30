@@ -1,7 +1,10 @@
 import os
 from openai import OpenAI
+import streamlit as st
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+# OpenAI 클라이언트 인스턴스 생성
+client = OpenAI(api_key=api_key)
 
 def classify_category(keyword: str, categories: list) -> str:
     if not keyword:

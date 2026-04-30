@@ -1,4 +1,6 @@
 import streamlit as st
+import os
+from openai import OpenAI
 import streamlit.components.v1 as components
 from modules.database import init_db
 from views.sidebar import render_sidebar
@@ -16,6 +18,13 @@ st.set_page_config(page_title="지피지기 포스팅 자동 생성기", page_ic
 
 
 # Main App State
+if 'openai_client' not in st.session_state:
+    api_key = st.secrets.get("OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")
+    if api_key:
+        st.session_state['openai_client'] = OpenAI(api_key=api_key)
+    else:
+        st.error("⚠️ API 키를 찾을 수 없습니다. .env 파일을 확인해주세요.")
+        st.session_state['openai_client'] = None
 if 'current_view' not in st.session_state:
     st.session_state.current_view = 'home' # home, result, trends, history
 if 'results' not in st.session_state:
