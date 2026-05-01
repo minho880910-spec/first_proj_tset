@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+# 환경 변수 로드
 load_dotenv()
 
 def get_naver_headers():
@@ -15,15 +16,29 @@ def get_naver_headers():
     }
 
 def get_naver_category_id(category_name):
+    """
+    네이버 쇼핑인사이트 표준 카테고리 매핑
+    사용자가 제시한 Naver 카테고리 목록을 기준으로 ID를 할당합니다.
+    """
     mapping = {
-        "패션/의류": "50000000", "화장품/뷰티": "50000002", "IT/가전": "50000003",
-        "식품/건강": "50000006", "인테리어/가구": "50000004", "여행/숙박": "50000009",
-        "게임/엔터": "50000005", "교육/도서": "50000008", "출산/육아": "50000001",
-        "반려동물 용품": "50000007", "취미/스포츠": "50000005"
+        "패션의류": "50000000",
+        "패션잡화": "50000001",
+        "화장품/미용": "50000002",
+        "디지털/가전": "50000003",
+        "가구/인테리어": "50000004",
+        "출산/육아": "50000005",
+        "식품": "50000006",
+        "스포츠/레저": "50000007",
+        "생활/건강": "50000008",
+        "여가/생활편의": "50000009",
+        "면세점": "50000010",
+        "도서": "50000011"
     }
+    # 매핑되지 않은 경우 기본값으로 '생활/건강' 등을 반환하거나 '50000000' 반환
     return mapping.get(category_name, "50000000")
 
 def get_naver_related_keywords(keyword):
+    """네이버 자동완성 API를 활용한 실시간 연관어 추출"""
     import urllib.parse
     encoded_keyword = urllib.parse.quote(keyword)
     url = f"https://ac.search.naver.com/nx/ac?q={encoded_keyword}&con=0&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_koreng=1&run=2&rev=4&q_enc=UTF-8&st=100"
@@ -47,38 +62,42 @@ def fetch_shopping_insight_data(endpoint, body):
         return None
 
 def fetch_naver_all_data(keyword, category_id):
+    """통합 검색어 추이 + 쇼핑인사이트 인구통계 및 랭킹 통합"""
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
 
-    # 1. 시계열 검색 추이
+    # 1. 시계열 검색 추이 (Naver DataLab Search API)
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {
         "startDate": start_date, "endDate": end_date, "timeUnit": "date",
         "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]
     }
-    res_search = requests.post(search_url, json=search_body, headers=get_naver_headers()).json()
-    df_time = pd.DataFrame(res_search['results'][0]['data']).rename(columns={'period': 'date', 'ratio': 'clicks'})
+    try:
+        res_search = requests.post(search_url, json=search_body, headers=get_naver_headers()).json()
+        df_time = pd.DataFrame(res_search['results'][0]['data']).rename(columns={'period': 'date', 'ratio': 'clicks'})
+    except:
+        df_time = pd.DataFrame()
 
-    # 2. 기기별 비중 (한글화)
+    # 2. 기기별 비중 가공 (mo/pc -> 모바일/PC)
     res_device = fetch_shopping_insight_data("device", common_body)
     df_device = None
     if res_device:
         df_device = pd.DataFrame(res_device['results'][0]['data']).rename(columns={'group': 'device', 'ratio': 'value'})
-        df_device['device'] = df_device['device'].map({'mo': '모바일', 'pc': 'PC'})
+        df_device['device'] = df_device['device'].replace({'mo': '모바일', 'pc': 'PC'})
 
-    # 3. 성별 비중 (한글화)
+    # 3. 성별 비중 가공 (f/m -> 여성/남성)
     res_gender = fetch_shopping_insight_data("gender", common_body)
     df_gender = None
     if res_gender:
         df_gender = pd.DataFrame(res_gender['results'][0]['data']).rename(columns={'group': 'gender', 'ratio': 'value'})
-        df_gender['gender'] = df_gender['gender'].map({'f': '여성', 'm': '남성'})
+        df_gender['gender'] = df_gender['gender'].replace({'f': '여성', 'm': '남성'})
 
     # 4. 연령별 비중
     res_age = fetch_shopping_insight_data("age", common_body)
     df_age = pd.DataFrame(res_age['results'][0]['data']).rename(columns={'group': 'age', 'ratio': 'value'}) if res_age else None
 
-    # 5. 연관어 및 카테고리 랭킹
+    # 5. 연관어 및 카테고리 키워드 랭킹
     related = get_naver_related_keywords(keyword)
     res_rank = fetch_shopping_insight_data("keywords", common_body)
     top_rank = [item['name'] for item in res_rank['results'][0]['data'][:10]] if res_rank else []
