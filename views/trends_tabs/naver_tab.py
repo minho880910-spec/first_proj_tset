@@ -7,19 +7,12 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
     col1, col2 = st.columns([2.5, 1])
     
     with col2:
+        # 우측 상단 연관어 영역 컨테이너
         keyword_related_container = st.container()
         st.divider()
         st.markdown("#### 📂 카테고리 선택")
         auto_cat = st.session_state.get(f"trend_category_{tab_name}")
-        
-        # [중요] 분류 결과가 categories 리스트 내에 있는지 검증
-        if auto_cat in categories:
-            default_idx = categories.index(auto_cat)
-        else:
-            default_idx = 0 # 리스트에 없으면 첫 번째 항목 선택
-            if auto_cat and auto_cat != "해당 카테고리 없음":
-                st.caption(f"⚠️ '{auto_cat}' 분류 결과가 매핑 테이블에 없습니다.")
-
+        default_idx = categories.index(auto_cat) if auto_cat in categories else 0
         category = st.selectbox("카테고리 선택", categories, index=default_idx, key=f"sb_{tab_name}", label_visibility="collapsed")
 
     main_keyword = global_main_keyword if prompt_input else category
@@ -27,7 +20,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
 
     if main_data:
         with col1:
-            # 1. 검색 추이
+            # 검색 추이 차트
             st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 검색 추이", unsafe_allow_html=True)
             df_time = main_data.get('time_series')
             if df_time is not None and not df_time.empty:
@@ -37,9 +30,9 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-            # 2. 비중 분석 (색상 복구)
+            # 비중 분석 차트 (색상 복구 및 데이터 존재 체크)
             if main_data.get('error') == 'mapping_failed':
-                st.info(f"💡 '{category}' 카테고리는 매핑되지 않아 하단 통계가 제공되지 않습니다.")
+                st.warning(f"⚠️ '{category}' 카테고리는 현재 쇼핑 통계 매핑을 지원하지 않습니다.")
             else:
                 st.write("") 
                 subcol1, subcol2, subcol3 = st.columns(3)
@@ -48,7 +41,6 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     st.caption("💻 기기별 (PC/모바일)")
                     df_dev = main_data.get('device_ratio')
                     if df_dev is not None:
-                        # 이전의 선명한 색상 적용
                         c = alt.Chart(df_dev).mark_arc(innerRadius=45).encode(
                             theta="value:Q", 
                             color=alt.Color("device:N", scale=alt.Scale(range=['#00c853', '#ff9800'])), 
@@ -60,7 +52,6 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     st.caption("👫 성별 비중")
                     df_gen = main_data.get('gender_ratio')
                     if df_gen is not None:
-                        # 이전의 선명한 색상 적용
                         c = alt.Chart(df_gen).mark_arc(innerRadius=45).encode(
                             theta="value:Q", 
                             color=alt.Color("gender:N", scale=alt.Scale(range=['#448aff', '#ff5252'])), 
@@ -78,7 +69,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                         ).properties(height=200)
                         st.altair_chart(c, use_container_width=True)
 
-        # 3. 우측 실시간 정보 (연관어)
+        # 우측 실시간 정보 렌더링
         with keyword_related_container:
             st.markdown(f"#### 🔍 {main_keyword} 연관어")
             queries = main_data.get('top_queries', [])
@@ -88,7 +79,6 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     html += f"<div style='margin-bottom: 8px; font-size: 14px;'><strong style='color: #2e7d32; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html + "</div>", unsafe_allow_html=True)
 
-        # 4. 우측 하단 인기순
         with col2:
             st.write("") 
             ranking = main_data.get('category_ranking', [])
@@ -98,3 +88,5 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 for i, q in enumerate(ranking):
                     html += f"<div style='margin-bottom: 10px; font-size: 14px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html + "</div>", unsafe_allow_html=True)
+            elif category != "해당 카테고리 없음":
+                st.caption(f"'{category}' 랭킹 정보가 없습니다.")
