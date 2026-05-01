@@ -16,7 +16,6 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
         st.markdown("#### 📂 카테고리 랭킹", unsafe_allow_html=True)
         cat_col, _ = st.columns([1, 0.1])
         with cat_col:
-            # trends.py에서 분류된 결과가 세션에 있다면 해당 값을 기본값으로 사용
             auto_cat = st.session_state.get(f"trend_category_{tab_name}", categories[0])
             try:
                 default_idx = categories.index(auto_cat)
@@ -32,11 +31,10 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
             )
             st.caption("네이버 쇼핑인사이트 기준")
 
-    # 2. 분석 키워드 결정 (프롬프트 입력이 있으면 키워드 우선, 없으면 카테고리 우선)
+    # 2. 분석 키워드 결정
     main_keyword = global_main_keyword if prompt_input else category
     
-    # 3. 데이터 가져오기 (실제 API 호출)
-    # fetch_trend_data 내부에서 네이버 쇼핑인사이트 API를 호출하도록 설계됨
+    # 3. 데이터 가져오기
     main_data, cat_data = fetch_trend_data(tab_name, main_keyword, category)
 
     # 4. 데이터 렌더링 시작
@@ -56,54 +54,12 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
             else:
                 st.info("시계열 데이터를 불러올 수 없습니다.")
 
-            # (2) 비중 분석 섹션 (기기/성별/연령)
-            st.markdown("#### 📊 인구통계학적 비중 분석", unsafe_allow_html=True)
-            st.write("---")
-            subcol1, subcol2, subcol3 = st.columns(3)
-            
-            # 기기별 비중 (Donut Chart)
-            with subcol1:
-                st.caption("💻 기기별 (PC/모바일)")
-                df_device = main_data.get('device_ratio')
-                if df_device is not None:
-                    device_chart = alt.Chart(df_device).mark_arc(innerRadius=45).encode(
-                        theta=alt.Theta(field="value", type="quantitative"),
-                        color=alt.Color(field="device", type="nominal", scale=alt.Scale(range=['#00c853', '#ff9800']), legend=alt.Legend(orient="bottom")),
-                        tooltip=['device', 'value']
-                    ).properties(height=220)
-                    st.altair_chart(device_chart, use_container_width=True)
-            
-            # 성별 비중 (Donut Chart)
-            with subcol2:
-                st.caption("👫 성별 비중")
-                df_gender = main_data.get('gender_ratio')
-                if df_gender is not None:
-                    gender_chart = alt.Chart(df_gender).mark_arc(innerRadius=45).encode(
-                        theta=alt.Theta(field="value", type="quantitative"),
-                        color=alt.Color(field="gender", type="nominal", scale=alt.Scale(range=['#448aff', '#ff5252']), legend=alt.Legend(orient="bottom")),
-                        tooltip=['gender', 'value']
-                    ).properties(height=220)
-                    st.altair_chart(gender_chart, use_container_width=True)
-            
-            # 연령별 비중 (Bar Chart)
-            with subcol3:
-                st.caption("🎂 연령별 비중")
-                df_age = main_data.get('age_ratio')
-                if df_age is not None:
-                    age_chart = alt.Chart(df_age).mark_bar(color='#448aff', cornerRadiusTopLeft=3, cornerRadiusTopRight=3).encode(
-                        x=alt.X('age:N', title='', axis=alt.Axis(labelAngle=0)),
-                        y=alt.Y('value:Q', title='', axis=None),
-                        tooltip=['age', 'value']
-                    ).properties(height=220)
-                    st.altair_chart(age_chart, use_container_width=True)
-
         # 5. 오른쪽 사이드바 콘텐츠 (연관 검색어 및 인기 검색어)
         with keyword_related_container:
             st.markdown(f"#### 🔍 {main_keyword} 연관 검색어", unsafe_allow_html=True)
             main_queries = main_data.get('top_queries', [])
             
             if main_queries:
-                # 네이버 느낌의 연두색 배경 박스
                 html_bg = "background-color: #f1f8e9; border: 1px solid #c8e6c9;"
                 html_content = f"<div style='{html_bg} padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #333;'>"
                 for i, q in enumerate(main_queries):
@@ -114,7 +70,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 st.info("연관 검색어 정보가 없습니다.")
 
         with col2:
-            st.write("") # 간격 조절
+            st.write("") 
             queries = cat_data.get('top_queries', []) if cat_data else []
             if queries:
                 html_bg2 = "background-color: #f9f9fc; border: 1px solid #e0e0e0;"
