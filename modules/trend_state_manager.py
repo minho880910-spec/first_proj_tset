@@ -5,6 +5,7 @@ import streamlit as st
 from datetime import datetime, timedelta
 from dotenv import load_dotenv
 
+# 환경 변수 로드
 load_dotenv()
 
 def get_naver_headers():
@@ -14,80 +15,86 @@ def get_naver_headers():
         "Content-Type": "application/json"
     }
 
+def get_naver_category_id(category_name):
+    """카테고리 이름을 네이버 ID로 변환"""
+    mapping = {
+        "패션/의류": "50000000", "화장품/뷰티": "50000002", "IT/가전": "50000003",
+        "식품/건강": "50000006", "인테리어/가구": "50000004", "여행/숙박": "50000009",
+        "게임/엔터": "50000005", "교육/도서": "50000008", "출산/육아": "50000001",
+        "반려동물 용품": "50000007", "취미/스포츠": "50000005"
+    }
+    return mapping.get(category_name, "50000000")
+
+def get_naver_related_keywords(keyword):
+    """네이버 자동완성 API를 활용한 연관 검색어 추출"""
+    import urllib.parse
+    encoded_keyword = urllib.parse.quote(keyword)
+    url = f"https://ac.search.naver.com/nx/ac?q={encoded_keyword}&con=0&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_koreng=1&run=2&rev=4&q_enc=UTF-8&st=100"
+    try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+            items = response.json().get('items', [])
+            if items:
+                return [item[0] for item in items[0]][:10]
+    except:
+        pass
+    return [f"{keyword} 추천", f"{keyword} 인기", f"{keyword} 순위"]
+
 def fetch_shopping_insight_data(endpoint, body):
-    """네이버 쇼핑인사이트 공통 호출 함수"""
     url = f"https://openapi.naver.com/v1/datalab/shopping/category/{endpoint}"
     try:
         response = requests.post(url, json=body, headers=get_naver_headers(), timeout=10)
         if response.status_code == 200:
             return response.json()
-    except Exception as e:
-        print(f"Shopping Insight API Error ({endpoint}): {e}")
-    return None
+    except:
+        return None
 
 def fetch_naver_all_data(keyword, category_id):
-    """검색어 트렌드 + 쇼핑인사이트 인구통계 + 카테고리 랭킹 통합 호출"""
-    
-    # 기본 설정
+    """이미지 형태의 검색 추이 + 실제 쇼핑인사이트 인구통계 통합"""
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     
-    common_body = {
-        "startDate": start_date,
-        "endDate": end_date,
-        "timeUnit": "date",
-        "category": category_id
-    }
+    common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
 
-    # 1. 시계열 검색어 트렌드 (통합 검색어 API)
+    # 1. 시계열 검색 추이 (이미지: 스크린샷 2026-05-01 152324.png 방식)
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {
         "startDate": start_date, "endDate": end_date, "timeUnit": "date",
         "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]
     }
-    
     res_search = requests.post(search_url, json=search_body, headers=get_naver_headers()).json()
     df_time = pd.DataFrame(res_search['results'][0]['data']).rename(columns={'period': 'date', 'ratio': 'clicks'})
 
-    # 2. 기기별 비중 API
+    # 2. 인구통계 (기기/성별/연령)
     res_device = fetch_shopping_insight_data("device", common_body)
     df_device = pd.DataFrame(res_device['results'][0]['data']).rename(columns={'group': 'device', 'ratio': 'value'}) if res_device else None
 
-    # 3. 성별 비중 API
     res_gender = fetch_shopping_insight_data("gender", common_body)
     df_gender = pd.DataFrame(res_gender['results'][0]['data']).rename(columns={'group': 'gender', 'ratio': 'value'}) if res_gender else None
 
-    # 4. 연령별 비중 API
     res_age = fetch_shopping_insight_data("age", common_body)
     df_age = pd.DataFrame(res_age['results'][0]['data']).rename(columns={'group': 'age', 'ratio': 'value'}) if res_age else None
 
-    # 5. 연관 검색어 (자동완성 활용)
-    from modules.trend_state_manager import get_naver_related_keywords
-    related_queries = get_naver_related_keywords(keyword)
-
-    # 6. 카테고리 내 인기 검색어 랭킹 (키워드 응답 구조 활용)
+    # 3. 연관어 및 카테고리 랭킹
+    related = get_naver_related_keywords(keyword)
     res_rank = fetch_shopping_insight_data("keywords", common_body)
     top_rank = [item['name'] for item in res_rank['results'][0]['data'][:10]] if res_rank else []
 
     return {
-        'time_series': df_time,
-        'device_ratio': df_device,
-        'gender_ratio': df_gender,
-        'age_ratio': df_age,
-        'top_queries': related_queries,
-        'category_ranking': top_rank
+        'time_series': df_time, 'device_ratio': df_device, 'gender_ratio': df_gender,
+        'age_ratio': df_age, 'top_queries': related, 'category_ranking': top_rank
     }
 
 def fetch_trend_data(tab_name, main_keyword, category_name=None):
     state_main_data = f"main_trend_data_{tab_name}"
     
-    # 카테고리 이름으로 ID 매핑 (기존 get_naver_category_id 함수 활용)
-    from modules.trend_state_manager import get_naver_category_id
-    category_id = get_naver_category_id(category_name)
-
     if tab_name == "Naver":
+        # 오류 수정: 외부에서 import하지 않고 같은 파일 내 함수를 직접 호출
+        category_id = get_naver_category_id(category_name)
         data = fetch_naver_all_data(main_keyword, category_id)
+        
         if data:
             st.session_state[state_main_data] = data
-            return data, data # 두 번째 인자는 카테고리 랭킹용 데이터
+            return data, data
+            
     return None, None
