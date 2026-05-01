@@ -43,9 +43,8 @@ def fetch_shopping_insight_data(endpoint, body):
     except: return None
 
 def fetch_naver_all_data(keyword, category_id):
-    # 1. 공통 정보 (연관어 및 검색 추이는 카테고리 매핑과 무관하게 항상 가져옴)
+    # 1. 공통 정보 (항상 가져옴)
     related = get_naver_related_keywords(keyword)
-    
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     
@@ -59,36 +58,41 @@ def fetch_naver_all_data(keyword, category_id):
     except:
         df_time = pd.DataFrame()
 
-    # 2. 카테고리 매핑이 필요한 데이터 처리
+    # 2. 카테고리 매핑 여부에 따른 결과 구성
+    result = {
+        'time_series': df_time,
+        'top_queries': related,
+        'device_ratio': None, 'gender_ratio': None, 'age_ratio': None, 'category_ranking': []
+    }
+
     if not category_id:
-        return {
-            'error': 'mapping_failed',
-            'time_series': df_time,
-            'top_queries': related,
-            'device_ratio': None, 'gender_ratio': None, 'age_ratio': None, 'category_ranking': []
-        }
+        result['error'] = 'mapping_failed'
+        return result
 
+    # 3. 쇼핑 인사이트 데이터 호출
     common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
-
-    # 인구통계 및 랭킹 데이터
+    
     res_device = fetch_shopping_insight_data("device", common_body)
-    df_device = pd.DataFrame(res_device['results'][0]['data']).rename(columns={'group': 'device', 'ratio': 'value'}) if res_device else None
-    if df_device is not None: df_device['device'] = df_device['device'].replace({'mo': '모바일', 'pc': 'PC'})
+    if res_device:
+        df_device = pd.DataFrame(res_device['results'][0]['data']).rename(columns={'group': 'device', 'ratio': 'value'})
+        df_device['device'] = df_device['device'].replace({'mo': '모바일', 'pc': 'PC'})
+        result['device_ratio'] = df_device
 
     res_gender = fetch_shopping_insight_data("gender", common_body)
-    df_gender = pd.DataFrame(res_gender['results'][0]['data']).rename(columns={'group': 'gender', 'ratio': 'value'}) if res_gender else None
-    if df_gender is not None: df_gender['gender'] = df_gender['gender'].replace({'f': '여성', 'm': '남성'})
+    if res_gender:
+        df_gender = pd.DataFrame(res_gender['results'][0]['data']).rename(columns={'group': 'gender', 'ratio': 'value'})
+        df_gender['gender'] = df_gender['gender'].replace({'f': '여성', 'm': '남성'})
+        result['gender_ratio'] = df_gender
 
     res_age = fetch_shopping_insight_data("age", common_body)
-    df_age = pd.DataFrame(res_age['results'][0]['data']).rename(columns={'group': 'age', 'ratio': 'value'}) if res_age else None
+    if res_age:
+        result['age_ratio'] = pd.DataFrame(res_age['results'][0]['data']).rename(columns={'group': 'age', 'ratio': 'value'})
 
     res_rank = fetch_shopping_insight_data("keywords", common_body)
-    top_rank = [item['name'] for item in res_rank['results'][0]['data'][:10]] if res_rank and 'results' in res_rank else []
+    if res_rank and 'results' in res_rank:
+        result['category_ranking'] = [item['name'] for item in res_rank['results'][0]['data'][:10]]
 
-    return {
-        'time_series': df_time, 'device_ratio': df_device, 'gender_ratio': df_gender,
-        'age_ratio': df_age, 'top_queries': related, 'category_ranking': top_rank
-    }
+    return result
 
 def fetch_trend_data(tab_name, main_keyword, category_name=None):
     state_key = f"main_trend_data_{tab_name}"

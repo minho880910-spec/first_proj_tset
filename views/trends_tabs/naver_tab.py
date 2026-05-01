@@ -7,7 +7,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
     col1, col2 = st.columns([2.5, 1])
     
     with col2:
-        # [수정] 연관검색어를 담을 컨테이너를 상단에 배치
+        # 상단에 연관어 배치 (스크린샷 피드백 반영)
         keyword_related_container = st.container()
         st.divider()
         st.markdown("#### 📂 카테고리 선택")
@@ -20,7 +20,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
 
     if main_data:
         with col1:
-            # 1. 검색 추이 그래프 (매핑 실패와 무관하게 항상 출력)
+            # 1. 검색 추이 그래프 (항상 출력)
             st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 검색 추이", unsafe_allow_html=True)
             df_time = main_data.get('time_series')
             if df_time is not None and not df_time.empty:
@@ -30,9 +30,9 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-            # 2. 매핑 실패 메시지 및 통계 처리
+            # 2. 하단 3종 그래프 (데이터가 있을 때만)
             if main_data.get('error') == 'mapping_failed':
-                st.warning(f"⚠️ '{category}' 카테고리는 쇼핑 통계 매핑을 지원하지 않아 하단 지표가 표시되지 않습니다.")
+                st.info(f"💡 '{category}' 카테고리는 쇼핑 통계 매핑이 제한되어 하단 지표가 표시되지 않습니다.")
             else:
                 st.write("") 
                 subcol1, subcol2, subcol3 = st.columns(3)
@@ -62,7 +62,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                         ).properties(height=200)
                         st.altair_chart(c, use_container_width=True)
 
-        # 3. 우측 실시간 정보 (연관어 상단 배치)
+        # 3. 우측 실시간 정보 (연관어)
         with keyword_related_container:
             st.markdown(f"#### 🔍 {main_keyword} 연관어")
             queries = main_data.get('top_queries', [])
@@ -72,6 +72,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     html += f"<div style='margin-bottom: 8px; font-size: 14px;'><strong style='color: #2e7d32; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html + "</div>", unsafe_allow_html=True)
 
+        # 4. 우측 하단 인기순
         with col2:
             st.write("") 
             ranking = main_data.get('category_ranking', [])
@@ -81,5 +82,3 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 for i, q in enumerate(ranking):
                     html += f"<div style='margin-bottom: 10px; font-size: 14px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html + "</div>", unsafe_allow_html=True)
-            elif category != "해당 카테고리 없음":
-                st.caption(f"'{category}' 랭킹 정보가 없습니다.")
