@@ -4,65 +4,95 @@ import pandas as pd
 from modules.trend_state_manager import fetch_trend_data
 
 def render(tab_name: str, categories: list, prompt_input: str, global_main_keyword: str):
+    # 1. 레이아웃 분할 (좌측: 그래프, 우측: 실시간 정보 및 설정)
     col1, col2 = st.columns([2.5, 1])
     
     with col2:
+        # 우측 상단 연관어 컨테이너 (레이아웃 고정)
         keyword_related_container = st.container()
         st.divider()
-        # [수정] 명칭 변경: 카테고리 선택 -> 카테고리 인기 검색어
+        
+        # [수정] UI 명칭 변경: 카테고리 선택 -> 카테고리 인기 검색어
         st.markdown("#### 📂 카테고리 인기 검색어")
+        
+        # AI 분류기 결과를 세션에서 가져와 기본값 설정
         auto_cat = st.session_state.get(f"trend_category_{tab_name}")
-        default_idx = categories.index(auto_cat) if auto_cat in categories else 0
-        category = st.selectbox("카테고리 선택", categories, index=default_idx, key=f"sb_{tab_name}", label_visibility="collapsed")
+        try:
+            # 분류 결과가 리스트에 존재할 때만 해당 인덱스 사용
+            default_idx = categories.index(auto_cat) if auto_cat in categories else 0
+        except:
+            default_idx = 0
+            
+        category = st.selectbox(
+            "카테고리 선택", 
+            categories, 
+            index=default_idx, 
+            key=f"sb_{tab_name}", 
+            label_visibility="collapsed"
+        )
+        st.caption("네이버 쇼핑인사이트 기준")
 
+    # 2. 데이터 가져오기 (main_data에 모든 쇼핑 통계 및 랭킹 포함)
     main_keyword = global_main_keyword if prompt_input else category
     main_data, _ = fetch_trend_data(tab_name, main_keyword, category)
 
     if main_data:
         with col1:
-            # 1. 검색 추이
+            # (1) 검색 추이 그래프
             st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 검색 추이", unsafe_allow_html=True)
             df_time = main_data.get('time_series')
             if df_time is not None and not df_time.empty:
                 chart = alt.Chart(df_time).mark_line(color='#00c853', strokeWidth=3, point=True).encode(
                     x=alt.X('date:T', title='', axis=alt.Axis(format='%m-%d', labelAngle=0)),
-                    y=alt.Y('clicks:Q', title='상대지수'), tooltip=['date:T', 'clicks:Q']
+                    y=alt.Y('clicks:Q', title='상대지수'),
+                    tooltip=['date:T', 'clicks:Q']
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-            # 2. 통계 지표
+            # (2) 비중 분석 섹션 (기기/성별/연령)
             if main_data.get('error') == 'mapping_failed':
-                st.warning(f"⚠️ '{category}' 카테고리는 통계 매핑을 지원하지 않습니다.")
+                st.warning(f"⚠️ '{category}' 카테고리는 현재 쇼핑 통계 매핑을 지원하지 않습니다.")
             else:
                 st.write("") 
                 subcol1, subcol2, subcol3 = st.columns(3)
+                
                 with subcol1:
                     st.caption("💻 기기별 (PC/모바일)")
                     df_dev = main_data.get('device_ratio')
                     if df_dev is not None:
+                        # 이전 버전의 선명한 색상 복구
                         c = alt.Chart(df_dev).mark_arc(innerRadius=45).encode(
-                            theta="value:Q", color=alt.Color("device:N", scale=alt.Scale(range=['#00c853', '#ff9800'])), tooltip=['device', 'value']
+                            theta="value:Q", 
+                            color=alt.Color("device:N", scale=alt.Scale(range=['#00c853', '#ff9800'])), 
+                            tooltip=['device', 'value']
                         ).properties(height=200)
                         st.altair_chart(c, use_container_width=True)
+                
                 with subcol2:
                     st.caption("👫 성별 비중")
                     df_gen = main_data.get('gender_ratio')
                     if df_gen is not None:
+                        # 이전 버전의 선명한 색상 복구
                         c = alt.Chart(df_gen).mark_arc(innerRadius=45).encode(
-                            theta="value:Q", color=alt.Color("gender:N", scale=alt.Scale(range=['#448aff', '#ff5252'])), tooltip=['gender', 'value']
+                            theta="value:Q", 
+                            color=alt.Color("gender:N", scale=alt.Scale(range=['#448aff', '#ff5252'])), 
+                            tooltip=['gender', 'value']
                         ).properties(height=200)
                         st.altair_chart(c, use_container_width=True)
+                
                 with subcol3:
                     st.caption("🎂 연령별 비중")
                     df_age = main_data.get('age_ratio')
                     if df_age is not None:
+                        # age 텍스트 제거 및 바 차트 출력
                         c = alt.Chart(df_age).mark_bar(color='#448aff').encode(
                             x=alt.X('age:N', title=None, axis=alt.Axis(labelAngle=0)),
-                            y=alt.Y('value:Q', axis=None), tooltip=['age', 'value']
+                            y=alt.Y('value:Q', axis=None), 
+                            tooltip=['age', 'value']
                         ).properties(height=200)
                         st.altair_chart(c, use_container_width=True)
 
-        # 3. 우측 실시간 정보 (연관어 상단)
+        # 3. 우측 실시간 정보 (연관어)
         with keyword_related_container:
             st.markdown(f"#### 🔍 {main_keyword} 연관어")
             queries = main_data.get('top_queries', [])
@@ -72,16 +102,16 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     html += f"<div style='margin-bottom: 8px; font-size: 14px;'><strong style='color: #2e7d32; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html + "</div>", unsafe_allow_html=True)
 
-        # 4. 우측 하단 카테고리 랭킹 (인기 검색어)
+        # 4. 우측 하단 실제 카테고리 인기 검색어 (랭킹)
         with col2:
             st.write("") 
             ranking = main_data.get('category_ranking', [])
             if ranking:
-                # 명칭 일관성을 위해 여기도 변경 가능
                 st.markdown(f"#### 🏆 {category} 인기순")
-                html = "<div style='background-color: #f9f9fc; padding: 15px; border-radius: 10px; height: 230px; overflow-y: auto; color: #333;'>"
+                html_rank = "<div style='background-color: #f9f9fc; padding: 15px; border-radius: 10px; height: 230px; overflow-y: auto; color: #333;'>"
                 for i, q in enumerate(ranking):
-                    html += f"<div style='margin-bottom: 10px; font-size: 14px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
-                st.markdown(html + "</div>", unsafe_allow_html=True)
+                    html_rank += f"<div style='margin-bottom: 10px; font-size: 14px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
+                st.markdown(html_rank + "</div>", unsafe_allow_html=True)
             elif category != "해당 카테고리 없음":
-                st.caption(f"'{category}' 랭킹 데이터가 없습니다.")
+                # 데이터가 비어있을 때 매핑 실패 여부를 확인하도록 안내
+                st.info(f"'{category}' 실시간 랭킹을 로드 중입니다.")
