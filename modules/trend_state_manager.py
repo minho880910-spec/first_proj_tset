@@ -15,7 +15,6 @@ def get_naver_headers():
     }
 
 def get_naver_category_id(category_name):
-    """표준 카테고리 ID 매핑 (Zipigigi 프로젝트 기준)"""
     mapping = {
         "패션의류": "50000000", "패션잡화": "50000001", "화장품/미용": "50000002",
         "디지털/가전": "50000003", "가구/인테리어": "50000004", "출산/육아": "50000005",
@@ -36,28 +35,15 @@ def get_naver_related_keywords(keyword):
     except: pass
     return []
 
-def fetch_shopping_insight_data(endpoint, body):
-    url = f"https://openapi.naver.com/v1/datalab/shopping/category/{endpoint}"
-    try:
-        response = requests.post(url, json=body, headers=get_naver_headers(), timeout=10)
-        if response.status_code == 200:
-            return response.json()
-        else:
-            # API 에러 발생 시 로그 기록 (디버깅용)
-            print(f"API Error ({endpoint}): {response.status_code} - {response.text}")
-            return None
-    except Exception as e:
-        print(f"Request Exception ({endpoint}): {e}")
-        return None
-
 def fetch_naver_all_data(keyword, category_id):
+    # 1. 공통 정보 세팅
     related = get_naver_related_keywords(keyword)
     
-    # [핵심 수정] 데이터 집계 지연을 고려해 종료일을 3일 전으로 설정 (매우 중요)
-    end_date = (datetime.now() - timedelta(days=3)).strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=32)).strftime('%Y-%m-%d')
+    # [수정] 랭킹 데이터를 가장 잘 가져오는 7일간의 범위로 설정
+    end_date = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=9)).strftime('%Y-%m-%d')
     
-    # 1. 네이버 통합 검색어 추이 (Zipigigi 프로젝트의 핵심 데이터)
+    # 검색 추이 (시계열)
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date",
                    "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]}
@@ -76,32 +62,32 @@ def fetch_naver_all_data(keyword, category_id):
         result['error'] = 'mapping_failed'
         return result
 
-    # 2. 쇼핑 인사이트 호출 파라미터
+    # 2. 쇼핑 인사이트 호출 (기기, 성별, 연령, 키워드랭킹)
     common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
     
-    # 각 지표 호출 및 데이터 추출
     for ep in ["device", "gender", "age", "keywords"]:
-        res = fetch_shopping_insight_data(ep, common_body)
-        if res and 'results' in res and len(res['results']) > 0:
-            # data 필드 존재 여부 확인
-            data = res['results'][0].get('data', [])
-            if not data: continue
+        url = f"https://openapi.naver.com/v1/datalab/shopping/category/{ep}"
+        try:
+            resp = requests.post(url, json=common_body, headers=get_naver_headers(), timeout=10).json()
+            if 'results' in resp and len(resp['results']) > 0:
+                data = resp['results'][0].get('data', [])
+                if not data: continue
 
-            if ep == "device":
-                df = pd.DataFrame(data).rename(columns={'group': 'device', 'ratio': 'value'})
-                df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
-                result['device_ratio'] = df
-            elif ep == "gender":
-                df = pd.DataFrame(data).rename(columns={'group': 'gender', 'ratio': 'value'})
-                df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
-                result['gender_ratio'] = df
-            elif ep == "age":
-                result['age_ratio'] = pd.DataFrame(data).rename(columns={'group': 'age', 'ratio': 'value'})
-            elif ep == "keywords":
-                # [랭킹 데이터 추출 로직 강화]
-                # 'name' 키가 있는 항목만 안전하게 필터링
-                rank_list = [item.get('name') for item in data if item.get('name')]
-                result['category_ranking'] = rank_list[:10]
+                if ep == "device":
+                    df = pd.DataFrame(data).rename(columns={'group': 'device', 'ratio': 'value'})
+                    df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
+                    result['device_ratio'] = df
+                elif ep == "gender":
+                    df = pd.DataFrame(data).rename(columns={'group': 'gender', 'ratio': 'value'})
+                    df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
+                    result['gender_ratio'] = df
+                elif ep == "age":
+                    result['age_ratio'] = pd.DataFrame(data).rename(columns={'group': 'age', 'ratio': 'value'})
+                elif ep == "keywords":
+                    # [핵심] 키워드 랭킹 추출 로직: name 필드를 리스트로 생성
+                    result['category_ranking'] = [item.get('name') for item in data if 'name' in item][:10]
+        except:
+            continue
 
     return result
 
