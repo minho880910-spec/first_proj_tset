@@ -40,16 +40,19 @@ def fetch_shopping_insight_data(endpoint, body):
     url = f"https://openapi.naver.com/v1/datalab/shopping/category/{endpoint}"
     try:
         response = requests.post(url, json=body, headers=get_naver_headers(), timeout=10)
-        if response.status_code == 200: return response.json()
+        if response.status_code == 200: 
+            return response.json()
     except: return None
 
 def fetch_naver_all_data(keyword, category_id):
-    """통합 검색 추이 + 쇼핑 인사이트 통계/랭킹"""
+    """통합 검색 추이 + 쇼핑 인사이트 데이터 추출"""
     related = get_naver_related_keywords(keyword)
-    end_date = datetime.now().strftime('%Y-%m-%d')
+    
+    # API 안정성을 위해 어제 날짜 기준으로 설정
+    end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     
-    # 1. 검색어 추이 (네이버 통합검색 API)
+    # 1. 검색어 추이
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date",
                    "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]}
@@ -68,27 +71,30 @@ def fetch_naver_all_data(keyword, category_id):
         result['error'] = 'mapping_failed'
         return result
 
-    # 2. 쇼핑 인사이트 데이터 (기기/성별/연령/키워드랭킹)
+    # 2. 쇼핑 인사이트 (통계 및 랭킹)
     common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
     
-    # 지표별 병렬 호출 및 파싱
+    # 지표별 호출
     for ep in ["device", "gender", "age", "keywords"]:
         res = fetch_shopping_insight_data(ep, common_body)
         if res and 'results' in res and len(res['results']) > 0:
-            data = res['results'][0]['data']
+            data = res['results'][0].get('data', [])
             if ep == "device":
                 df = pd.DataFrame(data).rename(columns={'group': 'device', 'ratio': 'value'})
-                df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
+                if not df.empty:
+                    df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
                 result['device_ratio'] = df
             elif ep == "gender":
                 df = pd.DataFrame(data).rename(columns={'group': 'gender', 'ratio': 'value'})
-                df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
+                if not df.empty:
+                    df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
                 result['gender_ratio'] = df
             elif ep == "age":
                 result['age_ratio'] = pd.DataFrame(data).rename(columns={'group': 'age', 'ratio': 'value'})
             elif ep == "keywords":
-                # [수정] 랭킹 리스트 추출 로직 강화
-                result['category_ranking'] = [item.get('name') for item in data if item.get('name')][:10]
+                # 랭킹 데이터 추출 로직 보완
+                rank_list = [item.get('name') for item in data if item.get('name')]
+                result['category_ranking'] = rank_list[:10]
 
     return result
 
