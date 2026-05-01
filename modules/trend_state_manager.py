@@ -36,14 +36,12 @@ def get_naver_related_keywords(keyword):
     return []
 
 def fetch_naver_all_data(keyword, category_id):
-    # 1. 공통 정보 세팅
     related = get_naver_related_keywords(keyword)
     
-    # [수정] 랭킹 데이터를 가장 잘 가져오는 7일간의 범위로 설정
-    end_date = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
-    start_date = (datetime.now() - timedelta(days=9)).strftime('%Y-%m-%d')
+    # 1. 시계열 데이터는 어제 날짜 기준으로 시도
+    end_date = (datetime.now() - timedelta(days=1)).strftime('%Y-%m-%d')
+    start_date = (datetime.now() - timedelta(days=31)).strftime('%Y-%m-%d')
     
-    # 검색 추이 (시계열)
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date",
                    "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]}
@@ -62,30 +60,30 @@ def fetch_naver_all_data(keyword, category_id):
         result['error'] = 'mapping_failed'
         return result
 
-    # 2. 쇼핑 인사이트 호출 (기기, 성별, 연령, 키워드랭킹)
-    common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
-    
-    for ep in ["device", "gender", "age", "keywords"]:
-        url = f"https://openapi.naver.com/v1/datalab/shopping/category/{ep}"
+    # 2. 쇼핑 인사이트 (랭킹 및 통계) - 데이터가 나올 때까지 날짜를 뒤로 밀며 시도
+    # 어제(1일 전)부터 최대 7일 전까지 탐색
+    for delay in range(1, 8):
+        target_date = (datetime.now() - timedelta(days=delay)).strftime('%Y-%m-%d')
+        common_body = {"startDate": target_date, "endDate": target_date, "timeUnit": "date", "category": category_id}
+        
+        url = "https://openapi.naver.com/v1/datalab/shopping/category/keywords"
         try:
-            resp = requests.post(url, json=common_body, headers=get_naver_headers(), timeout=10).json()
-            if 'results' in resp and len(resp['results']) > 0:
-                data = resp['results'][0].get('data', [])
-                if not data: continue
-
-                if ep == "device":
-                    df = pd.DataFrame(data).rename(columns={'group': 'device', 'ratio': 'value'})
-                    df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
-                    result['device_ratio'] = df
-                elif ep == "gender":
-                    df = pd.DataFrame(data).rename(columns={'group': 'gender', 'ratio': 'value'})
-                    df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
-                    result['gender_ratio'] = df
-                elif ep == "age":
-                    result['age_ratio'] = pd.DataFrame(data).rename(columns={'group': 'age', 'ratio': 'value'})
-                elif ep == "keywords":
-                    # [핵심] 키워드 랭킹 추출 로직: name 필드를 리스트로 생성
-                    result['category_ranking'] = [item.get('name') for item in data if 'name' in item][:10]
+            resp = requests.post(url, json=common_body, headers=get_naver_headers()).json()
+            data = resp.get('results', [{}])[0].get('data', [])
+            if data:
+                result['category_ranking'] = [item.get('name') for item in data if 'name' in item][:10]
+                
+                # 랭킹을 찾았다면 해당 날짜 기준으로 통계 데이터도 가져옴
+                for ep in ["device", "gender", "age"]:
+                    s_url = f"https://openapi.naver.com/v1/datalab/shopping/category/{ep}"
+                    s_res = requests.post(s_url, json=common_body, headers=get_naver_headers()).json()
+                    s_data = s_res.get('results', [{}])[0].get('data', [])
+                    if s_data:
+                        df = pd.DataFrame(s_data).rename(columns={'group': ep, 'ratio': 'value'})
+                        if ep == "device": df['device'] = df['device'].replace({'mo': '모바일', 'pc': 'PC'})
+                        if ep == "gender": df['gender'] = df['gender'].replace({'f': '여성', 'm': '남성'})
+                        result[f'{ep}_ratio'] = df
+                break # 데이터 찾기 성공 시 루프 종료
         except:
             continue
 
