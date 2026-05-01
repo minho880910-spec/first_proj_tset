@@ -25,7 +25,6 @@ def get_naver_category_id(category_name):
     return mapping.get(category_name)
 
 def get_naver_related_keywords(keyword):
-    """네이버 자동완성 API를 활용한 실시간 연관어 추출"""
     import urllib.parse
     encoded_keyword = urllib.parse.quote(keyword)
     url = f"https://ac.search.naver.com/nx/ac?q={encoded_keyword}&con=0&frm=nv&ans=2&r_format=json&r_enc=UTF-8&r_unicode=0&t_koreng=1&run=2&rev=4&q_enc=UTF-8&st=100"
@@ -45,13 +44,11 @@ def fetch_shopping_insight_data(endpoint, body):
     except: return None
 
 def fetch_naver_all_data(keyword, category_id):
-    """통합 검색어 추이 + 쇼핑인사이트 실데이터 통합"""
-    # 1. 공통 데이터 (항상 로드)
     related = get_naver_related_keywords(keyword)
     end_date = datetime.now().strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d')
     
-    # 통합 검색어 추이
+    # 1. 통합 검색어 추이
     search_url = "https://openapi.naver.com/v1/datalab/search"
     search_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date",
                    "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]}
@@ -61,18 +58,13 @@ def fetch_naver_all_data(keyword, category_id):
     except:
         df_time = pd.DataFrame()
 
-    # 2. 기본 결과 구조 (데이터가 없을 때를 대비한 안전장치)
-    result = {
-        'time_series': df_time, 'top_queries': related,
-        'device_ratio': None, 'gender_ratio': None, 'age_ratio': None, 'category_ranking': []
-    }
+    result = {'time_series': df_time, 'top_queries': related, 'device_ratio': None, 'gender_ratio': None, 'age_ratio': None, 'category_ranking': []}
 
-    # 3. 매핑 실패 시 조기 반환 (오류 방지)
     if not category_id:
         result['error'] = 'mapping_failed'
         return result
 
-    # 4. 쇼핑 인사이트 세부 데이터 호출
+    # 2. 쇼핑 인사이트 호출
     common_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "category": category_id}
     
     res_dev = fetch_shopping_insight_data("device", common_body)
@@ -91,14 +83,15 @@ def fetch_naver_all_data(keyword, category_id):
     if res_age:
         result['age_ratio'] = pd.DataFrame(res_age['results'][0]['data']).rename(columns={'group': 'age', 'ratio': 'value'})
 
+    # [수정] 카테고리 인기 검색어(키워드 랭킹) 데이터 추출 보완
     res_rank = fetch_shopping_insight_data("keywords", common_body)
-    if res_rank and 'results' in res_rank:
+    if res_rank and 'results' in res_rank and res_rank['results']:
+        # 네이버 API 응답: results[0] -> data 리스트 내부의 'name'이 실제 키워드입니다.
         result['category_ranking'] = [item['name'] for item in res_rank['results'][0]['data'][:10]]
 
     return result
 
 def fetch_trend_data(tab_name, main_keyword, category_name=None):
-    """탭별 데이터를 가져와 세션에 저장"""
     state_key = f"main_trend_data_{tab_name}"
     cid = get_naver_category_id(category_name)
     data = fetch_naver_all_data(main_keyword, cid)
