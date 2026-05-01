@@ -41,7 +41,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
     if main_data and isinstance(main_data, dict):
         with col1:
             # (1) 시계열 트렌드 차트
-            st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 쇼핑 트렌드 <span style='font-size: 0.6em; color: #888888; font-weight: normal; margin-left: 8px;'>최근 1주일 클릭 추이</span>", unsafe_allow_html=True)
+            st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 검색어 순위 근황 <span style='font-size: 0.6em; color: #888888; font-weight: normal; margin-left: 8px;'>최근 1개월 기준</span>", unsafe_allow_html=True)
             
             df_time = main_data.get('time_series')
             if df_time is not None and not df_time.empty:
@@ -54,7 +54,6 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
             else:
                 st.info("시계열 데이터를 불러올 수 없습니다.")
 
-            # (2) 비중 분석 섹션 (제목과 구분선 제거, 차트 레이아웃은 유지)
             st.write("") # 시계열 차트와의 약간의 간격 확보
             subcol1, subcol2, subcol3 = st.columns(3)
             
