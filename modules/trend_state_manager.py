@@ -54,28 +54,56 @@ def get_fixed_category_ranking(category_name):
 def fetch_trend_data(tab_name, main_keyword, category_name=None):
     state_key = f"main_trend_data_{tab_name}"
     
+    # 0. 초기 결과 구조 생성
     result = {
         'time_series': pd.DataFrame(),
         'top_queries': fetch_naver_autocomplete(main_keyword),
         'device_ratio': None,
         'gender_ratio': None,
         'age_ratio': None,
-        'media_ratio': None, # 인스타그램 전용
+        'media_ratio': None,
         'category_ranking': [],
         'region_ranking': pd.DataFrame(),
         'faqs': [],
         'hot_discussions': [],
         'top_influencers': [],
-        'x_sentiment': {}
+        'x_sentiment': {},
+        'realtime_keywords': []
     }
 
-    # 1. 공통 시계열 데이터
-    iot = fetch_google_real_trend(main_keyword)
-    if iot is None or iot.empty:
-        iot = fetch_naver_search_trend(main_keyword)
-    result['time_series'] = iot if iot is not None else pd.DataFrame()
+    # 1. [핵심] 시계열 데이터 수집 로직
+    iot = pd.DataFrame()
 
-    # 2. 탭별 분리된 AI 데이터 호출
+    if tab_name == "Google":
+        # 구글 탭일 경우 구글을 먼저 호출
+        try:
+            iot = fetch_google_real_trend(main_keyword)
+        except:
+            iot = pd.DataFrame()
+        
+        # 구글 호출 실패(None) 혹은 비어있을 경우 네이버로 대체
+        if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
+            iot = fetch_naver_search_trend(main_keyword)
+    else:
+        # 그 외 모든 탭(Naver, Instagram, X 등)은 네이버를 먼저 호출
+        iot = fetch_naver_search_trend(main_keyword)
+        
+        # 네이버가 없을 경우 대비로 구글을 보조로 호출
+        if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
+            try:
+                iot = fetch_google_real_trend(main_keyword)
+            except:
+                iot = pd.DataFrame()
+
+    # 2. [중요] 그래프 출력을 위한 날짜 형식 보정
+    if iot is not None and not iot.empty:
+        # Altair(그래프 라이브러리)는 Datetime 객체여야 그래프를 그립니다.
+        iot['date'] = pd.to_datetime(iot['date'])
+        result['time_series'] = iot
+    else:
+        result['time_series'] = pd.DataFrame()
+
+    # 3. 탭별 분리된 AI 데이터 호출
     if tab_name == "Google":
         ai_res = get_google_tab_ai_data(main_keyword)
         result['region_ranking'] = pd.DataFrame(ai_res.get('region_ranking', []))
