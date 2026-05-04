@@ -69,11 +69,11 @@ def get_naver_tab_ai_data(keyword, category_name):
     }
 
 def get_instagram_tab_ai_data(keyword, category_name):
-    """Instagram 탭 전용: 인기 해시태그 및 미디어/성별/연령 비중 생성"""
+    """Instagram 탭 전용: 해시태그를 제외한 미디어/성별/연령 비중 데이터만 생성"""
     prompt = f"""
     키워드 '{keyword}'와 인스타그램 카테고리 '{category_name}' 분석 JSON 생성.
+    해시태그 데이터는 제외하고, 오직 아래의 인구통계 비중만 생성할 것:
     {{
-      "hashtags": ["태그1", "태그2", "태그3", "태그4", "태그5"],
       "demographics": {{
         "media_type": {{"image": 40, "video": 50, "carousel": 10}},
         "gender": {{"f": 60, "m": 40}},
@@ -82,13 +82,11 @@ def get_instagram_tab_ai_data(keyword, category_name):
     }}
     """
     data = generate_ai_json(prompt)
-    # 필수 키 존재 여부 검사
-    if data and "hashtags" in data and "demographics" in data:
+    if data and "demographics" in data:
         demo = data["demographics"]
         if all(k in demo for k in ["media_type", "gender", "age"]):
             return data
     return {
-        "hashtags": [], 
         "demographics": {
             "media_type": {"image": 40, "video": 40, "carousel": 20},
             "gender": {"f": 50, "m": 50},
