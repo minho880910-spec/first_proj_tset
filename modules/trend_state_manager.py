@@ -150,12 +150,23 @@ def fetch_trend_data(tab_name, main_keyword, category_name=None):
         result['top_influencers'] = ai_res.get('top_influencers', [])
 
     elif tab_name == "X":
+        # 1. AI 데이터 호출 (감성, 점수, 팁, 단어 포함)
         ai_res = get_x_tab_ai_data(main_keyword)
         
-        # 중요: AI가 준 데이터에서 필요한 부분을 꺼내서 result에 정착시킴
-        result['hot_discussions'] = ai_res.get('hot_discussions', [])
-        # x_sentiment 자체가 딕셔너리이므로 그대로 대입
-        result['x_sentiment'] = ai_res.get('x_sentiment', {})
-
-    st.session_state[state_key] = result
-    return result, result
+        # 2. 데이터 알뜰하게 챙기기
+        # AI 응답에서 'x_sentiment' 내용물을 꺼냅니다.
+        x_data = ai_res.get('x_sentiment', {})
+        
+        # 탭에서 바로 사용할 수 있도록 result['x_sentiment']를 직접 구성
+        result['x_sentiment'] = {
+            'sentiment_stats': x_data.get('sentiment_stats', [60, 20, 15, 5]),
+            'emotional_words': x_data.get('emotional_words', []),
+            'satisfaction_score': x_data.get('satisfaction_score', 0),
+            'tips': x_data.get('tips', [])
+        }
+        
+        # 3. 네이버 검색어 재활용
+        if result['top_queries']:
+            result['realtime_keywords'] = result['top_queries'][:7]
+        else:
+            result['realtime_keywords'] = [f"{main_keyword} 반응", "실시간", "인기", "이슈"]
