@@ -7,6 +7,7 @@ load_dotenv()
 client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
 def generate_ai_json(prompt):
+    """OpenAI API를 통해 구조화된 JSON 데이터를 생성하는 공통 유틸리티"""
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -14,24 +15,78 @@ def generate_ai_json(prompt):
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content)
-    except:
+    except Exception as e:
+        print(f"AI JSON Generation Error: {e}")
         return None
 
-def get_comprehensive_analysis(keyword, category_name):
+def get_google_tab_ai_data(keyword):
+    """Google 탭 전용: 전국 지역별 관심도와 FAQ 생성"""
     prompt = f"""
-    키워드 '{keyword}'와 카테고리 '{category_name}' 분석 JSON 생성.
-    반드시 아래의 키 명칭을 엄수할 것:
+    키워드 '{keyword}'에 대한 한국 트렌드 분석 JSON을 생성해줘. 
     {{
-      "region_ranking": [{{"region": "서울", "score": 100}}],
-      "faqs": ["질문1", "질문2"],
-      "hot_discussions": [
-        {{"title": "제목", "replies": 10, "quotes": 5}} 
+      "region_ranking": [
+        {{"region": "서울", "score": 100}},
+        {{"region": "경기", "score": 85}},
+        {{"region": "부산", "score": 70}},
+        {{"region": "인천", "score": 60}},
+        {{"region": "대구", "score": 50}}
       ],
-      "top_influencers": [
-        {{"name": "이름", "handle": "@아이디"}} 
-      ],
-      "x_sentiment": {{ ... }},
-      "demographics": {{ ... }}
+      "faqs": ["질문1", "질문2", "질문3", "질문4", "질문5"]
     }}
     """
-    return generate_ai_json(prompt)
+    data = generate_ai_json(prompt)
+    return data if data else {"region_ranking": [], "faqs": [f"{keyword}의 특징은?"]}
+
+def get_naver_tab_ai_data(keyword, category_name):
+    """Naver 탭 전용: 기기/성별/연령별 인구통계 비중 생성"""
+    prompt = f"""
+    키워드 '{keyword}'와 카테고리 '{category_name}'의 한국 내 검색 사용자 비중 JSON 생성.
+    {{
+      "demographics": {{
+        "device": {{"mo": 75, "pc": 25}},
+        "gender": {{"f": 55, "m": 45}},
+        "age": {{"10": 10, "20": 25, "30": 30, "40": 20, "50": 10, "60": 5}}
+      }}
+    }}
+    """
+    data = generate_ai_json(prompt)
+    if data and "demographics" in data:
+        return data
+    return {"demographics": {"device": {"mo": 70, "pc": 30}, "gender": {"f": 50, "m": 50}, "age": {"30": 100}}}
+
+def get_threads_tab_ai_data(keyword):
+    """Threads 탭 전용: 텍스트 중심의 대화 및 인플루언서 분석"""
+    prompt = f"""
+    키워드 '{keyword}'에 대한 Threads(스레드) 반응 분석 JSON 생성.
+    {{
+      "hot_discussions": [
+        {{"title": "스레드 핫토픽", "replies": 150, "quotes": 80, "handle": "@threads_user", "author": "스레더", "content": "내용"}}
+      ],
+      "top_influencers": [
+        {{"rank": 1, "handle": "@leader", "name": "오피니언리더", "mentions": 1200, "followers": "50K"}}
+      ]
+    }}
+    """
+    data = generate_ai_json(prompt)
+    return data if data else {"hot_discussions": [], "top_influencers": []}
+
+def get_x_tab_ai_data(keyword):
+    """X(Twitter) 탭 전용: 실시간성 분석 및 감성/꿀팁 데이터 생성"""
+    prompt = f"""
+    키워드 '{keyword}'에 대한 X(트위터) 반응 분석 JSON 생성.
+    {{
+      "hot_discussions": [
+        {{"title": "현재 트렌드", "replies": 300, "quotes": 150, "handle": "@x_user", "author": "트위터리안", "content": "내용"}}
+      ],
+      "x_sentiment": {{
+        "sentiment_stats": [65, 15, 15, 5],
+        "emotional_words": ["만족", "대박", "강추"],
+        "satisfaction_score": 88,
+        "tips": [
+          {{"title": "X 유저 꿀팁", "desc": "설명"}}
+        ]
+      }}
+    }}
+    """
+    data = generate_ai_json(prompt)
+    return data if data else {"hot_discussions": [], "x_sentiment": {"sentiment_stats": [25,25,25,25], "emotional_words": [], "satisfaction_score": 50, "tips": []}}

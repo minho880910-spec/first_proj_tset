@@ -3,10 +3,17 @@ import streamlit as st
 import requests
 from datetime import datetime, timedelta
 from .api_clients import (
-    fetch_google_real_trend, fetch_naver_search_trend, 
-    fetch_naver_autocomplete, get_naver_headers
+    fetch_google_real_trend, 
+    fetch_naver_search_trend, 
+    fetch_naver_autocomplete, 
+    get_naver_headers
 )
-from .ai_generators import get_comprehensive_analysis
+from .ai_generators import (
+    get_google_tab_ai_data, 
+    get_naver_tab_ai_data, 
+    get_threads_tab_ai_data,
+    get_x_tab_ai_data
+)
 
 def get_naver_category_id(category_name):
     mapping = {
@@ -46,52 +53,82 @@ def get_fixed_category_ranking(category_name):
 def fetch_trend_data(tab_name, main_keyword, category_name=None):
     state_key = f"main_trend_data_{tab_name}"
     
-    # 1. 기본 구조 설정
     result = {
-        'time_series': pd.DataFrame(), 'top_queries': fetch_naver_autocomplete(main_keyword),
-        'device_ratio': None, 'gender_ratio': None, 'age_ratio': None,
-        'category_ranking': [], 'region_ranking': pd.DataFrame(), 'faqs': [],
-        'hot_discussions': [], 'top_influencers': [], 'x_sentiment': {}
+        'time_series': pd.DataFrame(),
+        'top_queries': fetch_naver_autocomplete(main_keyword),
+        'device_ratio': None,
+        'gender_ratio': None,
+        'age_ratio': None,
+        'category_ranking': [],
+        'region_ranking': pd.DataFrame(),
+        'faqs': [],
+        'hot_discussions': [],
+        'top_influencers': [],
+        'x_sentiment': {}
     }
 
-    # 2. 시계열 (구글 -> 네이버)
+    # 1. 공통 시계열 데이터
     iot = fetch_google_real_trend(main_keyword)
     if iot is None or iot.empty:
         iot = fetch_naver_search_trend(main_keyword)
     result['time_series'] = iot if iot is not None else pd.DataFrame()
 
-    # 3. AI 분석 통합 호출
-    ai_data = get_comprehensive_analysis(main_keyword, category_name)
-    if ai_data:
-        result['region_ranking'] = pd.DataFrame(ai_data.get('region_ranking', []))
-        result['faqs'] = ai_data.get('faqs', [])
-        result['hot_discussions'] = ai_data.get('hot_discussions', [])
-        result['top_influencers'] = ai_data.get('top_influencers', [])
-        result['x_sentiment'] = ai_res = ai_data.get('x_sentiment', {})
+    # 2. 탭별 분리된 AI 데이터 호출
+    if tab_name == "Google":
+        ai_res = get_google_tab_ai_data(main_keyword)
+        result['region_ranking'] = pd.DataFrame(ai_res.get('region_ranking', []))
+        result['faqs'] = ai_res.get('faqs', [])
+
+    elif tab_name == "Naver":
+        if "빵" in main_keyword or "음식" in main_keyword:
+            category_name = "식품"
+            
+        ai_res = get_naver_tab_ai_data(main_keyword, category_name)
+        demos = ai_res.get('demographics', {})
         
-        # 비중 데이터 (AI 예측값 주입)
-        demos = ai_data.get('demographics', {})
-        result['device_ratio'] = pd.DataFrame([{'device': '모바일', 'value': demos['device']['mo']}, {'device': 'PC', 'value': demos['device']['pc']}])
-        result['gender_ratio'] = pd.DataFrame([{'gender': '여성', 'value': demos['gender']['f']}, {'gender': '남성', 'value': demos['gender']['m']}])
-        result['age_ratio'] = pd.DataFrame([{'age': f"{k}대", 'value': v} for k, v in demos['age'].items()])
+        dev = demos.get('device', {'mo': 70, 'pc': 30})
+        gen = demos.get('gender', {'f': 50, 'm': 50})
+        age = demos.get('age', {})
+        
+        result['device_ratio'] = pd.DataFrame([
+            {'device': '모바일', 'value': dev.get('mo', 70)},
+            {'device': 'PC', 'value': dev.get('pc', 30)}
+        ])
+        result['gender_ratio'] = pd.DataFrame([
+            {'gender': '여성', 'value': gen.get('f', 50)},
+            {'gender': '남성', 'value': gen.get('m', 50)}
+        ])
+        result['age_ratio'] = pd.DataFrame([{'age': f"{k}대", 'value': v} for k, v in age.items()])
 
-    # 4. 네이버 쇼핑 실데이터 시도 (성공 시 위 AI 비중 데이터를 덮어씀)
-    cid = get_naver_category_id(category_name)
-    if cid:
-        for delay in range(3, 7):
-            t_date = (datetime.now() - timedelta(days=delay)).strftime('%Y-%m-%d')
-            headers = get_naver_headers()
-            body = {"startDate": t_date, "endDate": t_date, "timeUnit": "date", "category": cid}
-            try:
-                rk_res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", json=body, headers=headers).json()
-                items = rk_res.get('results', [{}])[0].get('data', [])
-                if items:
-                    result['category_ranking'] = [i.get('name') for i in items][:10]
-                    break
-            except: continue
+        # 네이버 쇼핑 실데이터 루프
+        cid = get_naver_category_id(category_name)
+        found_shopping = False
+        if cid:
+            for delay in range(3, 8):
+                t_date = (datetime.now() - timedelta(days=delay)).strftime('%Y-%m-%d')
+                try:
+                    res = requests.post("https://openapi.naver.com/v1/datalab/shopping/category/keywords", 
+                                        json={"startDate": t_date, "endDate": t_date, "timeUnit": "date", "category": cid}, 
+                                        headers=get_naver_headers()).json()
+                    items = res.get('results', [{}])[0].get('data', [])
+                    if items:
+                        result['category_ranking'] = [i.get('name') for i in items][:10]
+                        found_shopping = True
+                        break
+                except: continue
+        
+        if not found_shopping:
+            result['category_ranking'] = get_fixed_category_ranking(category_name)
 
-    if not result['category_ranking']:
-        result['category_ranking'] = get_fixed_category_ranking(category_name)
+    elif tab_name == "Threads":
+        ai_res = get_threads_tab_ai_data(main_keyword)
+        result['hot_discussions'] = ai_res.get('hot_discussions', [])
+        result['top_influencers'] = ai_res.get('top_influencers', [])
+
+    elif tab_name == "X":
+        ai_res = get_x_tab_ai_data(main_keyword)
+        result['hot_discussions'] = ai_res.get('hot_discussions', [])
+        result['x_sentiment'] = ai_res.get('x_sentiment', {})
 
     st.session_state[state_key] = result
     return result, result
