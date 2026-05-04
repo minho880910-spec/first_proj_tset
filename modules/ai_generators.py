@@ -114,43 +114,64 @@ def get_threads_tab_ai_data(keyword):
 
 def get_x_tab_ai_data(keyword):
     """X(Twitter) 탭 전용: 실시간성 분석 및 감성/꿀팁 데이터 생성"""
+    
+    # AI가 단순히 예시를 복사하지 않고 실제 유저 반응을 분석하도록 프롬프트 강화
     prompt = f"""
-    키워드 '{keyword}'에 대한 X(트위터) 반응 분석 JSON을 생성해줘.
-    반드시 다음 구조를 엄격히 지킬 것:
+    키워드 '{keyword}'에 대한 X(트위터) 실시간 반응 분석 JSON을 생성해줘.
+    
+    [중요 지시사항]
+    1. 'emotional_words' 배열에는 반드시 '{keyword}'와 관련된 실제 유저들의 리뷰, 감정, 장단점, 핵심 특징을 나타내는 단어를 10개 채울 것.
+    2. '좋음', '나쁨' 같은 단순한 단어보다 '노이즈캔슬링', '발열', '조리시간', '디자인' 등 검색어 특화 키워드를 우선할 것.
+    3. 예시로 제공된 형식을 그대로 복사(예: {keyword}특징1)하지 말고, 실제 분석된 단어로 교체할 것.
+
     {{
-      "hot_discussions": [],
+      "hot_discussions": [
+        {{
+          "title": "실시간 트렌드 토픽",
+          "replies": 150,
+          "quotes": 80,
+          "handle": "@trend_searcher",
+          "author": "트렌드분석가",
+          "content": "실제 트위터에서 논의되는 '{keyword}' 관련 내용을 요약해서 작성"
+        }}
+      ],
       "x_sentiment": {{
         "sentiment_stats": [60, 20, 15, 5],
-        "emotional_words": ["추천", "가성비", "디자인", "필수"],
+        "emotional_words": ["키워드관련단어1", "단어2", "단어3", "단어4", "단어5", "단어6", "단어7", "단어8", "단어9", "단어10"],
         "satisfaction_score": 85,
         "tips": [
           {{
             "title": "실시간 유저 팁",
-            "highlight": "구매 전 체크 포인트",
-            "desc": "설치 공간의 깊이와 문 열림 각도를 반드시 확인하세요."
+            "highlight": "구매/사용 시 핵심 포인트",
+            "desc": "유저들이 입을 모아 말하는 구체적인 노하우"
           }},
           {{
-            "title": "관리 노하우",
-            "highlight": "에너지 절약 꿀팁",
-            "desc": "냉장실은 70%만 채우고 냉동실은 가득 채우는 게 효율적입니다."
+            "title": "연관 노하우",
+            "highlight": "놓치기 쉬운 꿀팁",
+            "desc": "제품이나 서비스를 더 효과적으로 사용하는 방법"
           }}
         ]
       }}
     }}
     """
+    
     data = generate_ai_json(prompt)
     
-    # 데이터 검증 및 Fallback 강화
-    if not data or "x_sentiment" not in data:
+    # 데이터 검증 및 Fallback(기본값) 로직 - 키워드 맞춤형 기본값 생성
+    if not data or "x_sentiment" not in data or "tips" not in data.get("x_sentiment", {}):
         return {
             "hot_discussions": [],
             "x_sentiment": {
-                "sentiment_stats": [25, 25, 25, 25],
-                "emotional_words": ["분석중"],
-                "satisfaction_score": 50,
+                "sentiment_stats": [40, 30, 20, 10],
+                # 기본값도 오밀조밀한 클러스터를 위해 10개 구성
+                "emotional_words": [f"{keyword}리뷰", "성능", "디자인", "가성비", "추천", "이슈", "실사용후기", "필수템", "꿀팁", "반응"],
+                "satisfaction_score": 80,
                 "tips": [
-                    {"title": "정보", "highlight": f"{keyword} 구매 팁", "desc": "에너지 소비 효율 등급을 꼭 확인하세요."},
-                    {"title": "관리", "highlight": f"{keyword} 청소 팁", "desc": "베이킹소다를 활용해 내부 냄새를 제거해보세요."}
+                    {
+                        "title": "데이터 분석 중", 
+                        "highlight": f"{keyword} 정보 수집 중", 
+                        "desc": "실시간 트렌드 데이터를 처리하고 있습니다. 잠시만 기다려주세요."
+                    }
                 ]
             }
         }

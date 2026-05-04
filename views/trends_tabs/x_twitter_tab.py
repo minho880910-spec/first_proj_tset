@@ -25,7 +25,6 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
     main_data, _ = fetch_trend_data(tab_name, main_keyword)
 
     if main_data and isinstance(main_data, dict):
-        # AI가 생성한 X 전용 데이터 추출 (키값 확인 필수)
         x_ai = main_data.get('x_sentiment', {})
         
         # --- [상단 왼쪽] 트렌드 추이 ---
@@ -46,6 +45,8 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     y=alt.Y('clicks:Q', title='', axis=alt.Axis(grid=True, tickCount=3))
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
+            else:
+                st.info("시계열 데이터를 불러오는 중입니다.")
 
         # --- [상단 오른쪽] 실시간 키워드 ---
         with keyword_related_container:
@@ -62,11 +63,17 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         <span style='color: #4fc3f7;'>{count}</span>
                     </div>"""
                 st.markdown(f"<div style='background-color: #1a1b26; border: 1px solid #292e42; padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>{html_items}</div>", unsafe_allow_html=True)
+            else:
+                st.caption("연관 데이터를 수집 중입니다.")
 
-        # --- [하단 왼쪽] 감성 분석 지도 (버블 클러스터 디자인) ---
+        # --- [하단 왼쪽] 감성 분석 지도 (오밀조밀한 버블 레이아웃 적용) ---
         with sentiment_map_container:
             s_stats = x_ai.get('sentiment_stats', [60, 25, 10, 5])
-            e_words = x_ai.get('emotional_words', ["정보", "리뷰", "꿀팁", "추천", "공유", "실시간", "인기", "트렌드", "필수"])
+            e_words = x_ai.get('emotional_words', [])
+            # 단어가 부족할 경우를 대비한 기본값
+            if len(e_words) < 5:
+                e_words.extend(["트렌드", "반응", "이슈", "특징", "리뷰", "꿀팁", "장점", "단점", "추천", "공유"])
+                
             s_score = x_ai.get('satisfaction_score', 80)
             
             sc1, sc2, sc3 = st.columns([1, 2.5, 1])
@@ -81,18 +88,18 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             
             with sc2:
                 st.markdown(f"<div style='text-align: center; font-size: 12px; color: #a9b1d6; margin-bottom: 5px;'>감성 클러스터</div>", unsafe_allow_html=True)
-                # 버블 형태의 클러스터 구성
-                bubble_html = "<div style='position: relative; height: 160px; background-color: transparent; overflow: hidden;'>"
-                positions = [
-                    ("top: 10%; left: 10%;", "#FF00FF", 14), ("top: 5%; right: 15%;", "#00E5FF", 12),
-                    ("top: 40%; left: 35%;", "#00E5FF", 20), ("bottom: 15%; left: 5%;", "#448aff", 13),
-                    ("bottom: 5%; right: 20%;", "#FF00FF", 15), ("top: 30%; right: 5%;", "#a9b1d6", 11),
-                    ("bottom: 40%; left: 10%;", "#00E5FF", 12), ("top: 50%; right: 25%;", "#FF00FF", 14)
-                ]
-                for i, word in enumerate(e_words[:8]):
-                    pos, color, size = positions[i]
-                    bubble_html += f"<div style='position: absolute; {pos} color: {color}; font-size: {size}px; font-weight: bold; background: rgba(255,255,255,0.05); padding: 5px 12px; border-radius: 20px; border: 1px solid {color}33;'>{word}</div>"
+                
+                # Flexbox를 활용해 단어들을 중앙으로 오밀조밀하게 모으는 로직
+                bubble_html = "<div style='display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px; height: 160px; padding: 10px;'>"
+                colors = ["#FF00FF", "#00E5FF", "#448aff", "#a9b1d6", "#00E5FF", "#FF00FF", "#448aff", "#a9b1d6", "#FF00FF", "#00E5FF"]
+                sizes = [18, 14, 20, 13, 16, 12, 17, 11, 15, 13] # 다양한 크기
+                
+                for i, word in enumerate(e_words[:10]):
+                    color = colors[i % len(colors)]
+                    size = sizes[i % len(sizes)]
+                    bubble_html += f"<div style='color: {color}; font-size: {size}px; font-weight: bold; background: rgba(255,255,255,0.08); padding: 5px 12px; border-radius: 20px; border: 1px solid {color}44; white-space: nowrap;'>{word}</div>"
                 bubble_html += "</div>"
+                
                 st.markdown(bubble_html, unsafe_allow_html=True)
             
             with sc3:
@@ -107,21 +114,18 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 <div style='text-align: center; color: #00E5FF; font-weight: bold; font-size: 14px; margin-top: 5px;'>{s_score}점</div>"""
                 st.markdown(gauge_html, unsafe_allow_html=True)
 
-        # --- [하단 오른쪽] 베스트 꿀팁 / 연관 노하우 섹션 전체 수정 ---
+        # --- [하단 오른쪽] 베스트 꿀팁 / 연관 노하우 ---
         with tips_container:
             st.markdown("<div style='text-align: right; font-size: 11px; color: #888888; margin-bottom: 5px;'><span>🔖 실시간 유저 노하우</span></div>", unsafe_allow_html=True)
             
-            # x_ai 데이터에서 tips 리스트를 안전하게 추출
-            # AI가 'tips' 대신 'user_tips'나 'knowhow'를 썼을 경우도 대비
             tips = x_ai.get('tips', x_ai.get('user_tips', x_ai.get('knowhow', [])))
             
             if tips and isinstance(tips, list):
                 tips_html = ""
-                for i, t in enumerate(tips[:3]): # 최대 3개 표시
-                    # 개별 데이터 내 키값(title, highlight, desc)을 안전하게 참조
-                    t_title = t.get('title', '실시간 노하우')
-                    t_high = t.get('highlight', t.get('title', '핵심 포인트'))
-                    t_desc = t.get('desc', '상세 내용을 분석 중입니다.')
+                for i, t in enumerate(tips[:3]):
+                    t_title = t.get('title', '정보')
+                    t_high = t.get('highlight', t.get('title', '실시간 노하우'))
+                    t_desc = t.get('desc', '상세 내용을 가져오지 못했습니다.')
                     
                     tips_html += f"""
                     <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; margin-bottom: 8px;'>
@@ -136,5 +140,4 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(tips_html, unsafe_allow_html=True)
             else:
-                # 데이터가 아예 없을 경우에만 info 표시
                 st.info(f"'{main_keyword}'에 대한 분석 데이터를 구성 중입니다.")
