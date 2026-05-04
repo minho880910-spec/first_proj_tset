@@ -3,16 +3,16 @@ import streamlit as st
 import requests
 from datetime import datetime, timedelta
 from .api_clients import (
-    fetch_google_real_trend,
-    fetch_naver_search_trend,
-    fetch_naver_autocomplete,
+    fetch_google_real_trend, 
+    fetch_naver_search_trend, 
+    fetch_naver_autocomplete, 
     get_naver_headers
 )
 from .ai_generators import (
-    get_google_tab_ai_data,
-    get_naver_tab_ai_data,
-    get_instagram_tab_ai_data,
-    get_threads_tab_ai_data,
+    get_google_tab_ai_data, 
+    get_naver_tab_ai_data, 
+    get_instagram_tab_ai_data, 
+    get_threads_tab_ai_data, 
     get_x_tab_ai_data
 )
 
@@ -71,39 +71,33 @@ def fetch_trend_data(tab_name, main_keyword, category_name=None):
         'realtime_keywords': []
     }
 
-    # 1. [핵심] 시계열 데이터 수집 로직
+    # 1. [그래프] 시계열 데이터 수집 로직 (네이버 우선, 구글 탭 예외)
     iot = pd.DataFrame()
-
-    if tab_name == "Google":
-        # 구글 탭일 경우 구글을 먼저 호출
-        try:
+    try:
+        if tab_name == "Google":
+            # 구글 탭은 구글 우선
             iot = fetch_google_real_trend(main_keyword)
-        except:
-            iot = pd.DataFrame()
-        
-        # 구글 호출 실패(None) 혹은 비어있을 경우 네이버로 대체
-        if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
+            if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
+                iot = fetch_naver_search_trend(main_keyword)
+        else:
+            # 타 탭은 네이버 우선
             iot = fetch_naver_search_trend(main_keyword)
-    else:
-        # 그 외 모든 탭(Naver, Instagram, X 등)은 네이버를 먼저 호출
-        iot = fetch_naver_search_trend(main_keyword)
-        
-        # 네이버가 없을 경우 대비로 구글을 보조로 호출
-        if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
-            try:
+            if iot is None or (isinstance(iot, pd.DataFrame) and iot.empty):
                 iot = fetch_google_real_trend(main_keyword)
-            except:
-                iot = pd.DataFrame()
+    except:
+        iot = pd.DataFrame()
 
-    # 2. [중요] 그래프 출력을 위한 날짜 형식 보정
+    # 데이터 정규화 (날짜 형식 및 숫자 형식 고정)
     if iot is not None and not iot.empty:
-        # Altair(그래프 라이브러리)는 Datetime 객체여야 그래프를 그립니다.
+        iot = iot.copy()
         iot['date'] = pd.to_datetime(iot['date'])
+        iot['clicks'] = pd.to_numeric(iot['clicks'], errors='coerce').fillna(0)
+        iot = iot.sort_values('date')
         result['time_series'] = iot
     else:
         result['time_series'] = pd.DataFrame()
 
-    # 3. 탭별 분리된 AI 데이터 호출
+    # 2. 탭별 데이터 호출 및 세부 가공
     if tab_name == "Google":
         ai_res = get_google_tab_ai_data(main_keyword)
         result['region_ranking'] = pd.DataFrame(ai_res.get('region_ranking', []))
@@ -112,7 +106,6 @@ def fetch_trend_data(tab_name, main_keyword, category_name=None):
     elif tab_name == "Naver":
         if "빵" in main_keyword or "음식" in main_keyword:
             category_name = "식품"
-            
         ai_res = get_naver_tab_ai_data(main_keyword, category_name)
         demos = ai_res.get('demographics', {})
         
@@ -146,27 +139,19 @@ def fetch_trend_data(tab_name, main_keyword, category_name=None):
                         found_shopping = True
                         break
                 except: continue
-        
         if not found_shopping:
             result['category_ranking'] = get_fixed_category_ranking(category_name)
 
     elif tab_name == "Instagram":
-        # 고정 해시태그 즉시 로드
         result['category_ranking'] = get_fixed_category_ranking(category_name)
-        
-        # 인구통계 AI 추정치 로드
         ai_res = get_instagram_tab_ai_data(main_keyword, category_name)
         demos = ai_res.get('demographics', {})
-        
-        # [미디어 유형]
         media = demos.get('media_type', {'image': 45, 'video': 45, 'carousel': 10})
         result['media_ratio'] = pd.DataFrame([
             {'type': '이미지', 'value': media.get('image', 45)},
             {'type': '동영상(릴스)', 'value': media.get('video', 45)},
             {'type': '슬라이드', 'value': media.get('carousel', 10)}
         ])
-        
-        # [성별/연령] - 네이버와 동일 변수명 사용 (그래프 호환)
         gen = demos.get('gender', {'f': 50, 'm': 50})
         age = demos.get('age', {"20": 40, "30": 40, "40": 20})
         result['gender_ratio'] = pd.DataFrame([{'gender': '여성', 'value': gen.get('f')}, {'gender': '남성', 'value': gen.get('m')}])
@@ -178,26 +163,20 @@ def fetch_trend_data(tab_name, main_keyword, category_name=None):
         result['top_influencers'] = ai_res.get('top_influencers', [])
 
     elif tab_name == "X":
-        # 1. AI 데이터 호출 (감성, 점수, 팁, 단어 포함)
         ai_res = get_x_tab_ai_data(main_keyword)
-        
-        # 2. 데이터 알뜰하게 챙기기
-        # AI 응답에서 'x_sentiment' 내용물을 꺼냅니다.
         x_data = ai_res.get('x_sentiment', {})
-        
-        # 탭에서 바로 사용할 수 있도록 result['x_sentiment']를 직접 구성
         result['x_sentiment'] = {
             'sentiment_stats': x_data.get('sentiment_stats', [60, 20, 15, 5]),
             'emotional_words': x_data.get('emotional_words', []),
             'satisfaction_score': x_data.get('satisfaction_score', 0),
             'tips': x_data.get('tips', [])
         }
-        
-        # 3. 네이버 검색어 재활용
+        # 네이버 연관 검색어 재활용하여 실시간 키워드 TOP 7 생성
         if result['top_queries']:
             result['realtime_keywords'] = result['top_queries'][:7]
         else:
-            result['realtime_keywords'] = [f"{main_keyword} 반응", "실시간", "인기", "이슈"]
+            result['realtime_keywords'] = [f"{main_keyword} 반응", "실시간", "인기", "이슈", "추천", "뉴스", "후기"]
 
+    # 3. 최종 상태 업데이트 및 반환
     st.session_state[state_key] = result
     return result, result
