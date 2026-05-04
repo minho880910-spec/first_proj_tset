@@ -20,7 +20,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
         st.markdown("#### 스레드 오피니언 리더", unsafe_allow_html=True)
         influencers_container = st.container()
 
-    # 데이터 가져오기 (통합된 fetch_trend_data 사용)
+    # 데이터 가져오기
     main_data, cat_data = fetch_trend_data(tab_name, main_keyword)
 
     if main_data and isinstance(main_data, dict):
@@ -45,7 +45,6 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
         # --- [상단 오른쪽] 급상승 키워드 ---
         with keyword_related_container:
             st.markdown(f"#### <span style='color:#4fc3f7'>{main_keyword}</span> 급상승 키워드", unsafe_allow_html=True)
-            
             main_queries = main_data.get('top_queries', [])
             mock_counts = ["3.2k", "2.1k", "1.6k", "1.2k", "900", "850", "700", "500", "450", "300"]
             if main_queries:
@@ -59,17 +58,15 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         <span style='color: #a9b1d6; font-size: 12px;'>{count_txt}</span>
                     </div>"""
                 st.markdown(f"<div style='{html_bg} padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>{items_html}</div>", unsafe_allow_html=True)
-            else:
-                st.caption("연관 키워드를 불러오지 못했습니다.")
 
-        # --- [하단 왼쪽] 뜨거운 감자 (데이터 바인딩 수정 완료) ---
+        # --- [하단 왼쪽] 뜨거운 감자 (변수 바인딩 수정 부분) ---
         with hot_discussion_container:
             hot_discussions = main_data.get('hot_discussions', [])
             if hot_discussions:
                 cols = st.columns(3)
                 for i, disc in enumerate(hot_discussions[:3]):
                     with cols[i]:
-                        # 데이터 안전하게 가져오기
+                        # AI 데이터를 변수에 할당
                         title = disc.get('title', '인기 게시글')
                         replies = disc.get('replies', 0)
                         quotes = disc.get('quotes', 0)
@@ -84,7 +81,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                             <span style='color: #00E5FF;'>{quotes}인용</span>
                         </div>
                         """
-                        # 하드코딩된 '김커피' 대신 변수 handle, author, content 사용
+                        # 하드코딩된 '김지혜' 등을 지우고 중괄호 변수 {handle}, {author}, {content}로 교체
                         card = f"""
                         <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; color: #a9b1d6; min-height: 140px;'>
                             <div style='display: flex; align-items: center; margin-bottom: 8px;'>
@@ -98,7 +95,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         </div>"""
                         st.markdown(header + stats + card, unsafe_allow_html=True)
             else:
-                st.info("현재 뜨거운 반응이 있는 게시글을 분석 중입니다.")
+                st.info("실시간 반응을 분석 중입니다.")
 
         # --- [하단 오른쪽] 스레드 오피니언 리더 ---
         with influencers_container:
@@ -128,5 +125,3 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         </div>
                     </div>"""
                 st.markdown(f"<div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 15px;'>{rows_html}</div>", unsafe_allow_html=True)
-            else:
-                st.info("영향력 있는 오피니언 리더를 찾는 중입니다.")
