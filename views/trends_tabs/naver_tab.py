@@ -4,7 +4,7 @@ import pandas as pd
 from modules.trend_state_manager import fetch_trend_data
 
 def render(tab_name: str, categories: list, prompt_input: str, global_main_keyword: str):
-    # 1. 메인 레이아웃 분할 (좌측: 그래프 및 비중, 우측: 검색 관련 정보)
+    # 1. 메인 레이아웃 분할
     col1, col2 = st.columns([2.5, 1])
     
     # 카테고리 동기화 설정
@@ -24,7 +24,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
     if main_data:
         # --- 좌측 컬럼 (col1) ---
         with col1:
-            # (1) 검색 추이 그래프 (좌측 상단)
+            # (1) 검색 추이 그래프
             st.markdown(f"### <span style='color:#00c853'>{main_keyword}</span> 검색 추이", unsafe_allow_html=True)
             df_time = main_data.get('time_series')
             if df_time is not None and not df_time.empty:
@@ -33,10 +33,8 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                     y=alt.Y('clicks:Q', title='상대지수'), tooltip=['date:T', 'clicks:Q']
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
-            else:
-                st.info("검색 추이 데이터를 불러오는 중입니다.")
 
-            # (2) 하단 비중 분석 (기기/성별/연령)
+            # (2) 하단 비중 분석
             st.write("---")
             subcol1, subcol2, subcol3 = st.columns(3)
             
@@ -74,7 +72,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
 
         # --- 우측 컬럼 (col2) ---
         with col2:
-            # (1) 연관 검색어 (우측 상단 고정)
+            # (1) 연관 검색어
             st.markdown(f"#### 🔍 {main_keyword} 연관어")
             queries = main_data.get('top_queries', [])
             if queries:
@@ -82,12 +80,10 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 for i, q in enumerate(queries):
                     html_rel += f"<div style='margin-bottom: 8px; font-size: 14px;'><strong style='color: #2e7d32; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html_rel + "</div>", unsafe_allow_html=True)
-            else:
-                st.caption("연관어 불러오는 중...")
 
             st.divider()
 
-            # (2) 카테고리 인기 검색어 (우측 하단으로 이동)
+            # (2) 카테고리 선택 및 랭킹 (요청하신 텍스트 출력 부분 삭제)
             st.markdown("#### 📂 카테고리 인기 검색어")
             category = st.selectbox(
                 "카테고리 선택", 
@@ -95,13 +91,12 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
                 key=f"sb_{tab_name}", 
                 label_visibility="collapsed"
             )
-            st.caption(f"📍 분석 대상: **{category}**")
             
             ranking = main_data.get('category_ranking', [])
             if ranking:
-                st.write("")
-                st.markdown(f"#### 🏆 {category} 인기순")
-                html_rank = f"<div style='background-color: #f9f9fc; padding: 15px; border-radius: 10px; height: 350px; overflow-y: auto; color: #333;'>"
+                # 📍 분석 대상 및 🏆 인기순 타이틀 삭제 후 목록 박스만 노출
+                st.write("") 
+                html_rank = f"<div style='background-color: #f9f9fc; padding: 15px; border-radius: 10px; height: 400px; overflow-y: auto; color: #333;'>"
                 for i, q in enumerate(ranking):
                     html_rank += f"<div style='margin-bottom: 12px; font-size: 14px;'><strong style='color: #0056b3; width: 25px; display: inline-block;'>{i+1}</strong> {q}</div>"
                 st.markdown(html_rank + "</div>", unsafe_allow_html=True)
