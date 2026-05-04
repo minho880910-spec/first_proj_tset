@@ -3,7 +3,6 @@ import altair as alt
 import pandas as pd
 from modules.trend_state_manager import fetch_trend_data
 
-<<<<<<< HEAD
 # --------------------------------------
 # 🔥 데이터 보정 및 계층 구조 정규화 함수
 # --------------------------------------
@@ -177,7 +176,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 <span style='font-size:12px; color:#d1d5db; line-height:1.6;'>{t.get('desc', '')}</span>
             </div>
             """, unsafe_allow_html=True)
-=======
+
 def render(tab_name: str, prompt_input: str, global_main_keyword: str):
     main_keyword = global_main_keyword
     
@@ -288,4 +287,3 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             else:
                 # 데이터가 없을 때도 UI가 깨지지 않게 팁 강제 생성
                 st.caption(f"'{main_keyword}' 관련 최신 노하우를 분석 중입니다. 잠시만 기다려주세요.")
->>>>>>> parent of f6609b6 (0504.1554)
