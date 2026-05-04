@@ -107,24 +107,26 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 <div style='text-align: center; color: #00E5FF; font-weight: bold; font-size: 14px; margin-top: 5px;'>{s_score}점</div>"""
                 st.markdown(gauge_html, unsafe_allow_html=True)
 
-        # --- [하단 오른쪽] 베스트 꿀팁 (데이터 매핑 수정) ---
+        # --- [하단 오른쪽] 베스트 꿀팁 섹션 부분 수정 ---
         with tips_container:
             st.markdown("<div style='text-align: right; font-size: 11px; color: #888888; margin-bottom: 5px;'><span>🔖 실시간 유저 노하우</span></div>", unsafe_allow_html=True)
-            # AI 결과에서 'tips' 리스트를 가져옴
+            
+            # x_sentiment 내의 tips 리스트를 안전하게 추출
             tips = x_ai.get('tips', [])
+    
             if tips:
                 tips_html = ""
-                for i, t in enumerate(tips):
-                    # AI가 생성한 필드명(title, desc 등)에 맞춰 안전하게 추출
-                    t_title = t.get('title', '정보')
-                    # highlight 필드가 없을 경우 title을 대신 사용
-                    t_high = t.get('highlight', t.get('title', '실시간 노하우'))
-                    t_desc = t.get('desc', '상세 내용을 분석 중입니다.')
+                for i, t in enumerate(tips[:3]): # 최대 3개 노출
+                    # 키값이 달라도 출력되도록 안전하게 매핑
+                    t_title = t.get('title', '실시간 정보')
+                    # highlight가 없으면 title을, 그것도 없으면 기본 문구 사용
+                    t_high = t.get('highlight', t.get('title', '핵심 노하우'))
+                    t_desc = t.get('desc', '상세 내용을 확인 중입니다.')
                     
                     tips_html += f"""
                     <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; margin-bottom: 8px;'>
                         <div style='display: flex; align-items: flex-start;'>
-                            <div style='color: #4fc3f7; font-size: 15px; font-weight: bold; width: 20px;'>{i+1}</div>
+                            <div style='color: #4fc3f7; font-size: 15px; font-weight: bold; width: 25px;'>{i+1}</div>
                             <div style='flex: 1;'>
                                 <div style='color: #a9b1d6; font-size: 12px; margin-bottom: 2px;'>{t_title}</div>
                                 <div style='color: #ffffff; font-size: 14px; font-weight: bold; margin-bottom: 2px;'>{t_high}</div>
@@ -134,4 +136,4 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(tips_html, unsafe_allow_html=True)
             else:
-                st.info("데이터를 생성 중입니다.")
+                st.info("실시간 꿀팁 데이터를 분석 중입니다.")
