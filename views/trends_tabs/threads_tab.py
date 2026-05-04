@@ -25,7 +25,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
     if main_data and isinstance(main_data, dict):
         # --- [상단 왼쪽] 대화량 추이 ---
         with col1:
-            # 요청하신 대로 (최근 24시간)을 삭제하고 타이틀 옆에 '최근 1달' 밀착 배치
+            # 타이틀 옆에 '최근 1달' 밀착 배치
             st.markdown(
                 f"### <span style='color:#00E5FF'>{main_keyword}</span> 대화량 추이 "
                 f"<span style='font-size: 0.8rem; color: gray; font-weight: normal; margin-left: 10px;'>최근 1달</span>", 
@@ -39,9 +39,9 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-        # --- [상단 오른쪽] 급상승 키워드 ---
+        # --- [상단 오른쪽] 급상승 키워드 (오타 수정 완료) ---
         with keyword_related_container:
-            st.markdown(f"#### <span style='color:#4fc3f7'>{main_keyword}</span> 급상승 키워어")
+            st.markdown(f"#### <span style='color:#4fc3f7'>{main_keyword}</span> 급상승 키워드")
             main_queries = main_data.get('top_queries', [])
             mock_counts = ["3.2k", "2.1k", "1.6k", "1.2k", "900", "850", "700", "500", "450", "300"]
             if main_queries:
@@ -56,14 +56,13 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(f"<div style='{html_bg} padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>{items_html}</div>", unsafe_allow_html=True)
 
-        # --- [하단 왼쪽] 뜨거운 감자 ---
+        # --- [하단 왼쪽] 뜨거운 감자 (AI 보완 로직 적용) ---
         with hot_discussion_container:
             hot_discussions = main_data.get('hot_discussions', [])
             if hot_discussions:
                 cols = st.columns(3)
                 for i, disc in enumerate(hot_discussions[:3]):
                     with cols[i]:
-                        # AI가 생성한 생생한 게시물 데이터 출력
                         header = f"<div style='font-size: 14px; margin-bottom: 5px; font-weight: bold; color: #a9b1d6;'><span style='color: #4fc3f7;'>{i+1}</span> {disc['title']}</div>"
                         stats = f"<div style='font-size: 12px; margin-bottom: 8px;'><span style='color: #00E5FF;'>↪ {disc['replies']}답글</span> &nbsp; <span style='color: #00E5FF;'>{disc['quotes']}인용</span></div>"
                         card = f"""
@@ -79,7 +78,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         </div>"""
                         st.markdown(header + stats + card, unsafe_allow_html=True)
 
-        # --- [하단 오른쪽] 스레드 오피니언 리더 ---
+        # --- [하단 오른쪽] 스레드 오피니언 리더 (AI 보완 로직 적용) ---
         with influencers_container:
             influencers = main_data.get('top_influencers', [])
             if influencers:
