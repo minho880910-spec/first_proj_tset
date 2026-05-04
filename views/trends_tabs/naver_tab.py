@@ -76,7 +76,7 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
         # --- 우측 컬럼 (col2) ---
         with col2:
             # (1) 연관 검색어
-            st.markdown(f"#### 🔍 {main_keyword} 연관 검색어")
+            st.markdown(f"#### {main_keyword} 연관 검색어")
             queries = main_data.get('top_queries', [])
             if queries:
                 html_rel = "<div style='background-color: #f1f8e9; padding: 15px; border-radius: 10px; height: 230px; overflow-y: auto; color: #333; margin-bottom: 20px;'>"
