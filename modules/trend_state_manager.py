@@ -27,7 +27,7 @@ def get_naver_category_id(category_name):
     return mapping.get(category_name)
 
 def get_fixed_category_ranking(category_name):
-    """API 데이터 부재 시 출력할 카테고리별 고정 데이터 (네이버 & 인스타그램)"""
+    """API 데이터 부재 시 출력할 카테고리별 고정 데이터 (네이버 & 인스타그램 공통)"""
     fixed_data = {
         # --- 네이버 카테고리 ---
         "패션의류": ["원피스", "바람막이", "블라우스", "티셔츠", "올리비아로렌", "에고이스트", "남자반팔티", "잇미샤원피스", "럭키슈에뜨", "써스데이아일랜드"],
@@ -51,12 +51,12 @@ def get_fixed_category_ranking(category_name):
         "운동 및 건강": ["오운완", "헬스타그램", "운동하는여자", "운동하는남자", "필라테스", "바디프로필", "다이어트식단", "유지어터", "등산스타그램", "건강관리"],
         "예술 및 디자인": ["전시회추천", "미술관", "홈인테리어", "디자인소품", "그림스타그램", "감성사진", "인테리어그램", "예술가", "방꾸미기", "드로잉"],
         "반려동물": ["멍스타그램", "냥스타그램", "반려견", "댕댕이", "집사그램", "강아지사료", "고양이집사", "반려묘", "강아지옷", "멍팔"],
-        "비즈니스 및 기술": ["자기계발", "재테크", "직장인스타그램", "스타업", "경제공부", "신제품리뷰", "애플", "갤럭시", "데스크테리어", "마케팅트렌드"]
+        "비즈니스 및 기술": ["자기계발", "재테크", "직장인스타그램", "스타트업", "경제공부", "신제품리뷰", "애플", "갤럭시", "데스크테리어", "마케팅트렌드"]
     }
     return fixed_data.get(category_name, [])
 
 def generate_ai_estimates(keyword, category):
-    """실데이터 부재 시 AI를 통해 논리적 예측 수치 생성"""
+    """Naver/Instagram 탭용 논리적 수치 비중 생성"""
     prompt = f"키워드 '{keyword}'와 카테고리 '{category}'의 한국 트렌드 분석 JSON. 고정값 금지. 형식: {{\"device\": {{\"mo\": 70, \"pc\": 30}}, \"gender\": {{\"f\": 55, \"m\": 45}}, \"age\": {{\"10\": 5, \"20\": 20, \"30\": 25, \"40\": 25, \"50\": 15, \"60\": 10}}}}"
     try:
         response = client.chat.completions.create(
@@ -69,11 +69,23 @@ def generate_ai_estimates(keyword, category):
 
 def generate_google_ai_estimates(keyword):
     """Google 탭용 지역 랭킹 및 FAQ 생성"""
-    prompt = f"키워드 '{keyword}'에 대한 한국 지역 랭킹 5곳(score 0~100)과 구글 FAQ 5개 JSON. 형식: {{\"region_ranking\": [{{\"region\": \"서울\", \"score\": 95}}], \"faqs\": [\"질문?\"]}}"
+    prompt = f"키워드 '{keyword}'에 대한 한국 지역별 검색 관심도 5곳(score 0~100)과 구글 FAQ 5개 JSON. 형식: {{\"region_ranking\": [{{\"region\": \"서울\", \"score\": 95}}], \"faqs\": [\"질문?\"]}}"
     try:
         response = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[{"role": "user", "content": prompt}],
+            response_format={"type": "json_object"}
+        )
+        return json.loads(response.choices[0].message.content)
+    except: return None
+
+def generate_threads_ai_estimates(keyword):
+    """Threads 탭용 화제의 게시물 및 영향력 있는 유저 생성"""
+    prompt = f"키워드 '{keyword}'에 대한 Threads(스레드) 실시간 반응 JSON. 1. hot_discussions(3개: handle, author, title, content, replies, quotes), 2. top_influencers(5명: rank, handle, name, mentions, followers). 형식: {{\"hot_discussions\": [], \"top_influencers\": []}}"
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[{"role": "system", "content": "너는 스레드 문화 분석가야."}, {"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
         return json.loads(response.choices[0].message.content)
@@ -92,6 +104,7 @@ def get_naver_related_keywords(keyword):
     return []
 
 def fetch_naver_all_data(keyword, category_id, category_name):
+    # 기본 데이터 구조 설정
     related = get_naver_related_keywords(keyword)
     end_date = (datetime.now() - timedelta(days=2)).strftime('%Y-%m-%d')
     start_date = (datetime.now() - timedelta(days=32)).strftime('%Y-%m-%d')
@@ -99,17 +112,18 @@ def fetch_naver_all_data(keyword, category_id, category_name):
     result = {
         'time_series': pd.DataFrame(), 'top_queries': related, 
         'device_ratio': None, 'gender_ratio': None, 'age_ratio': None, 
-        'category_ranking': [], 'region_ranking': pd.DataFrame(), 'faqs': []
+        'category_ranking': [], 'region_ranking': pd.DataFrame(), 'faqs': [],
+        'hot_discussions': [], 'top_influencers': []
     }
 
-    # 1. 시계열
+    # 1. 시계열 데이터 호출
     try:
         search_body = {"startDate": start_date, "endDate": end_date, "timeUnit": "date", "keywordGroups": [{"groupName": keyword, "keywords": [keyword]}]}
         res_search = requests.post("https://openapi.naver.com/v1/datalab/search", json=search_body, headers=get_naver_headers()).json()
         result['time_series'] = pd.DataFrame(res_search['results'][0]['data']).rename(columns={'period': 'date', 'ratio': 'clicks'})
     except: pass
 
-    # 2. 쇼핑 데이터
+    # 2. 쇼핑 실데이터 탐색 (네이버 API)
     found_real = False
     if category_id:
         for delay in range(3, 11):
@@ -132,7 +146,8 @@ def fetch_naver_all_data(keyword, category_id, category_name):
                     break
             except: continue
 
-    # 3. 데이터 보완 (Naver/Instagram/Google 공통)
+    # 3. 플랫폼별 보완 로직
+    # (1) Naver & Instagram 비중/랭킹 보완
     if not found_real or result['device_ratio'] is None:
         result['category_ranking'] = get_fixed_category_ranking(category_name)
         ai_data = generate_ai_estimates(keyword, category_name)
@@ -141,10 +156,17 @@ def fetch_naver_all_data(keyword, category_id, category_name):
             result['gender_ratio'] = pd.DataFrame([{'gender': '여성', 'value': ai_data['gender']['f']}, {'gender': '남성', 'value': ai_data['gender']['m']}])
             result['age_ratio'] = pd.DataFrame([{'age': f"{k}대", 'value': v} for k, v in ai_data['age'].items()])
 
+    # (2) Google 지역/FAQ 보완
     ai_google = generate_google_ai_estimates(keyword)
     if ai_google:
         result['region_ranking'] = pd.DataFrame(ai_google['region_ranking'])
         result['faqs'] = ai_google['faqs']
+
+    # (3) Threads 게시물/오피니언 리더 보완
+    ai_threads = generate_threads_ai_estimates(keyword)
+    if ai_threads:
+        result['hot_discussions'] = ai_threads.get('hot_discussions', [])
+        result['top_influencers'] = ai_threads.get('top_influencers', [])
     
     return result
 
