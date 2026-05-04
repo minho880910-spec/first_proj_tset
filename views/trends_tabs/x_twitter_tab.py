@@ -45,8 +45,6 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     y=alt.Y('clicks:Q', title='', axis=alt.Axis(grid=True, tickCount=3))
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
-            else:
-                st.info("시계열 데이터를 불러오는 중입니다.")
 
         # --- [상단 오른쪽] 실시간 키워드 ---
         with keyword_related_container:
@@ -63,16 +61,16 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                         <span style='color: #4fc3f7;'>{count}</span>
                     </div>"""
                 st.markdown(f"<div style='background-color: #1a1b26; border: 1px solid #292e42; padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>{html_items}</div>", unsafe_allow_html=True)
-            else:
-                st.caption("연관 데이터를 수집 중입니다.")
 
-        # --- [하단 왼쪽] 감성 분석 지도 (오밀조밀한 버블 레이아웃 적용) ---
+        # --- [하단 왼쪽] 감성 분석 지도 ---
         with sentiment_map_container:
             s_stats = x_ai.get('sentiment_stats', [60, 25, 10, 5])
+            
+            # [문제 해결 1] "트렌드, 반응, 이슈..." 등 가짜 단어를 억지로 밀어넣는 로직 삭제.
+            # 오직 AI가 생성한 단어만 가져옵니다.
             e_words = x_ai.get('emotional_words', [])
-            # 단어가 부족할 경우를 대비한 기본값
-            if len(e_words) < 5:
-                e_words.extend(["트렌드", "반응", "이슈", "특징", "리뷰", "꿀팁", "장점", "단점", "추천", "공유"])
+            if not e_words:
+                e_words = ["데이터", "불러오는중"]
                 
             s_score = x_ai.get('satisfaction_score', 80)
             
@@ -88,18 +86,15 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             
             with sc2:
                 st.markdown(f"<div style='text-align: center; font-size: 12px; color: #a9b1d6; margin-bottom: 5px;'>감성 클러스터</div>", unsafe_allow_html=True)
-                
-                # Flexbox를 활용해 단어들을 중앙으로 오밀조밀하게 모으는 로직
                 bubble_html = "<div style='display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 8px; height: 160px; padding: 10px;'>"
                 colors = ["#FF00FF", "#00E5FF", "#448aff", "#a9b1d6", "#00E5FF", "#FF00FF", "#448aff", "#a9b1d6", "#FF00FF", "#00E5FF"]
-                sizes = [18, 14, 20, 13, 16, 12, 17, 11, 15, 13] # 다양한 크기
+                sizes = [18, 14, 20, 13, 16, 12, 17, 11, 15, 13]
                 
                 for i, word in enumerate(e_words[:10]):
                     color = colors[i % len(colors)]
                     size = sizes[i % len(sizes)]
                     bubble_html += f"<div style='color: {color}; font-size: {size}px; font-weight: bold; background: rgba(255,255,255,0.08); padding: 5px 12px; border-radius: 20px; border: 1px solid {color}44; white-space: nowrap;'>{word}</div>"
                 bubble_html += "</div>"
-                
                 st.markdown(bubble_html, unsafe_allow_html=True)
             
             with sc3:
@@ -118,21 +113,20 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
         with tips_container:
             st.markdown("<div style='text-align: right; font-size: 11px; color: #888888; margin-bottom: 5px;'><span>🔖 실시간 유저 노하우</span></div>", unsafe_allow_html=True)
             
-            # 다중 키 검사
+            # [문제 해결 2] "데이터를 구성 중입니다" 가짜 텍스트 제거 완료.
+            # 데이터가 있으면 무조건 화면에 꽂아 넣습니다.
             tips = x_ai.get('tips')
             if not tips:
                 tips = x_ai.get('user_tips', x_ai.get('knowhow', []))
             
-            # 리스트에 1개 이상의 데이터가 있을 때만 렌더링
             if tips and isinstance(tips, list) and len(tips) > 0:
                 tips_html = ""
                 for i, t in enumerate(tips[:3]):
-                    # 딕셔너리 형태가 아닐 경우의 방어
                     if not isinstance(t, dict): continue
-                        
-                    t_title = t.get('title', '관련 정보')
-                    t_high = t.get('highlight', t.get('title', f'{main_keyword} 노하우'))
-                    t_desc = t.get('desc', '상세 내용을 가져오지 못했습니다.')
+                    
+                    t_title = t.get('title', '정보')
+                    t_high = t.get('highlight', '요약')
+                    t_desc = t.get('desc', '내용')
                     
                     tips_html += f"""
                     <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; margin-bottom: 8px;'>
@@ -147,4 +141,5 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(tips_html, unsafe_allow_html=True)
             else:
-                st.info(f"'{main_keyword}'에 대한 분석 데이터를 구성 중입니다.")
+                # 만약 캐시가 꼬이거나 API 연동에 실패했을 때만 명확한 해결책 안내
+                st.warning("데이터를 불러오지 못했습니다.")
