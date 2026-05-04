@@ -25,7 +25,6 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
     if main_data and isinstance(main_data, dict):
         # --- [상단 왼쪽] 대화량 추이 ---
         with col1:
-            # 타이틀 옆에 '최근 1달' 밀착 배치
             st.markdown(
                 f"### <span style='color:#00E5FF'>{main_keyword}</span> 대화량 추이 "
                 f"<span style='font-size: 0.8rem; color: gray; font-weight: normal; margin-left: 10px;'>최근 1달</span>", 
@@ -39,9 +38,11 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                 ).properties(height=350)
                 st.altair_chart(chart, use_container_width=True)
 
-        # --- [상단 오른쪽] 급상승 키워드 (오타 수정 완료) ---
+        # --- [상단 오른쪽] 급상승 키워드 (태그 노출 문제 해결) ---
         with keyword_related_container:
-            st.markdown(f"#### <span style='color:#4fc3f7'>{main_keyword}</span> 급상승 키워드")
+            # f-string 내부에서 HTML 태그가 깨지지 않도록 구조를 정리했습니다.
+            st.markdown(f"#### <span style='color:#4fc3f7'>{main_keyword}</span> 급상승 키워드", unsafe_allow_html=True)
+            
             main_queries = main_data.get('top_queries', [])
             mock_counts = ["3.2k", "2.1k", "1.6k", "1.2k", "900", "850", "700", "500", "450", "300"]
             if main_queries:
