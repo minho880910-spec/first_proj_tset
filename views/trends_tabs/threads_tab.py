@@ -62,30 +62,31 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             else:
                 st.caption("연관 키워드를 불러오지 못했습니다.")
 
-        # --- [하단 왼쪽] 뜨거운 감자 (KeyError 방지 적용) ---
+        # --- [하단 왼쪽] 뜨거운 감자 (데이터 바인딩 수정 완료) ---
         with hot_discussion_container:
             hot_discussions = main_data.get('hot_discussions', [])
             if hot_discussions:
                 cols = st.columns(3)
                 for i, disc in enumerate(hot_discussions[:3]):
                     with cols[i]:
-                        # .get()을 사용하여 데이터 부재 시에도 에러 방지
+                        # 데이터 안전하게 가져오기
                         title = disc.get('title', '인기 게시글')
                         replies = disc.get('replies', 0)
                         quotes = disc.get('quotes', 0)
                         handle = disc.get('handle', '@user')
-                        author = disc.get('author', 'Threads User')
+                        author = disc.get('author', '사용자')
                         content = disc.get('content', '내용을 불러올 수 없습니다.')
 
-                        header = f"<div style='font-size: 14px; margin-bottom: 5px; font-weight: bold; color: #a9b1d6;'><span style='color: #4fc3f7;'>{i+1}</span> {title}</div>"
+                        header = f"<div style='font-size: 14px; margin-bottom: 5px; font-weight: bold; color: #a9b1d6; height: 40px; overflow: hidden;'><span style='color: #4fc3f7;'>{i+1}</span> {title}</div>"
                         stats = f"""
                         <div style='font-size: 12px; margin-bottom: 8px;'>
                             <span style='color: #00E5FF;'>↪ {replies}답글</span> &nbsp; 
                             <span style='color: #00E5FF;'>{quotes}인용</span>
                         </div>
                         """
+                        # 하드코딩된 '김커피' 대신 변수 handle, author, content 사용
                         card = f"""
-                        <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; color: #a9b1d6;'>
+                        <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; color: #a9b1d6; min-height: 140px;'>
                             <div style='display: flex; align-items: center; margin-bottom: 8px;'>
                                 <div style='width: 30px; height: 30px; background-color: #448aff; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 8px; font-size: 12px;'>👤</div>
                                 <div style='line-height: 1.1;'>
@@ -105,7 +106,6 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             if influencers:
                 rows_html = ""
                 for i, inf in enumerate(influencers[:5]):
-                    # rank가 없으면 인덱스(i+1) 사용
                     rank = inf.get('rank', i + 1)
                     handle = inf.get('handle', '@user')
                     name = inf.get('name', '사용자')
