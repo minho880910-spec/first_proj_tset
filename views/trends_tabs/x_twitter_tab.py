@@ -118,17 +118,19 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
         with tips_container:
             st.markdown("<div style='text-align: right; font-size: 11px; color: #888888; margin-bottom: 5px;'><span>🔖 실시간 유저 노하우</span></div>", unsafe_allow_html=True)
             
-            # AI 데이터에서 무조건 tips를 꺼내옵니다. (없으면 빈 리스트)
-            tips = x_ai.get('tips', [])
+            # 다중 키 검사
+            tips = x_ai.get('tips')
             if not tips:
                 tips = x_ai.get('user_tips', x_ai.get('knowhow', []))
             
-            # 카드를 렌더링하는 순수 로직 (가짜 데이터 주입 삭제)
+            # 리스트에 1개 이상의 데이터가 있을 때만 렌더링
             if tips and isinstance(tips, list) and len(tips) > 0:
                 tips_html = ""
                 for i, t in enumerate(tips[:3]):
-                    # 데이터 안전 추출 (AI가 필드명을 빼먹어도 에러 방지)
-                    t_title = t.get('title', '정보')
+                    # 딕셔너리 형태가 아닐 경우의 방어
+                    if not isinstance(t, dict): continue
+                        
+                    t_title = t.get('title', '관련 정보')
                     t_high = t.get('highlight', t.get('title', f'{main_keyword} 노하우'))
                     t_desc = t.get('desc', '상세 내용을 가져오지 못했습니다.')
                     
@@ -145,5 +147,4 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(tips_html, unsafe_allow_html=True)
             else:
-                # 만약 정말로 AI 응답이 지연되거나 실패했을 때만 띄우는 안내 문구
-                st.info(f"'{main_keyword}'에 대한 유저들의 실시간 노하우를 분석 중입니다.")
+                st.info(f"'{main_keyword}'에 대한 분석 데이터를 구성 중입니다.")

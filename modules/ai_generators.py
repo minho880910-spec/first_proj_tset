@@ -117,20 +117,13 @@ def get_x_tab_ai_data(keyword):
     prompt = f"""
     키워드 '{keyword}'에 대한 X(트위터) 실시간 반응 분석 JSON을 생성해줘.
     
-    [중요 지시사항]
-    1. 'emotional_words' 배열에는 '{keyword}'의 실제 유저 반응(장단점, 특징, 감정)을 10개 채울 것.
-    2. 'tips' 배열에는 키워드가 제품이든, 생물이든, 장소든 상관없이 해당 키워드 성격에 맞는 '유저들의 꿀팁/노하우/관련 정보'를 무조건 3개 이상 생성할 것. (예: 강아지 -> 양육/훈련 팁, 장소 -> 방문 꿀팁 등)
-
+    [매우 중요한 지시사항]
+    1. 'emotional_words' 배열에는 '{keyword}'의 실제 유저 반응, 장단점, 특징을 나타내는 단어를 정확히 10개 채울 것.
+    2. 'tips' 배열에는 키워드가 동물(고양이, 강아지), 사물, 장소, 음식 등 무엇이든 상관없이 해당 성격에 맞는 꿀팁이나 노하우를 무조건 3개 생성할 것. (절대로 빈 배열 []로 두지 말 것!)
+    
     {{
       "hot_discussions": [
-        {{
-          "title": "실시간 트렌드 토픽",
-          "replies": 150,
-          "quotes": 80,
-          "handle": "@trend_searcher",
-          "author": "트렌드분석가",
-          "content": "실제 트위터에서 논의되는 '{keyword}' 관련 내용을 요약해서 작성"
-        }}
+        {{"title": "실시간 트렌드", "replies": 150, "quotes": 80, "handle": "@user1", "author": "작성자", "content": "내용"}}
       ],
       "x_sentiment": {{
         "sentiment_stats": [60, 20, 15, 5],
@@ -138,14 +131,9 @@ def get_x_tab_ai_data(keyword):
         "satisfaction_score": 85,
         "tips": [
           {{
-            "title": "키워드 맞춤 노하우 1",
-            "highlight": "핵심 한 줄 요약",
+            "title": "{keyword} 맞춤 노하우",
+            "highlight": "핵심 요약",
             "desc": "구체적인 팁 설명"
-          }},
-          {{
-            "title": "키워드 맞춤 노하우 2",
-            "highlight": "놓치기 쉬운 포인트",
-            "desc": "유저들이 자주 공유하는 정보"
           }}
         ]
       }}
@@ -154,19 +142,19 @@ def get_x_tab_ai_data(keyword):
     
     data = generate_ai_json(prompt)
     
-    # 데이터 검증: tips가 아예 비어있는 리스트([])로 올 경우까지 완벽 차단
+    # [수정된 방어 로직] tips 키가 아예 없거나, 텅 빈 리스트([])일 경우 모두 차단하여 기본값 반환
     if not data or "x_sentiment" not in data or not data["x_sentiment"].get("tips"):
         return {
             "hot_discussions": [],
             "x_sentiment": {
                 "sentiment_stats": [40, 30, 20, 10],
-                "emotional_words": [f"{keyword}리뷰", "정보", "꿀팁", "이슈", "반응", "특징", "추천", "공유", "실시간", "트렌드"],
+                "emotional_words": [f"{keyword}집사", "건강", "간식", "장난감", "꿀팁", "반응", "특징", "리뷰", "공유", "이슈"],
                 "satisfaction_score": 80,
                 "tips": [
                     {
-                        "title": "데이터 분석 지연", 
-                        "highlight": f"'{keyword}' 정보 수집 중", 
-                        "desc": "실시간 트렌드 데이터를 처리하고 있습니다. 잠시만 기다려주세요."
+                        "title": f"{keyword} 관련 정보", 
+                        "highlight": "유저 노하우 요약 중", 
+                        "desc": f"'{keyword}'에 관련된 실시간 반응과 유용한 꿀팁을 모으고 있습니다."
                     }
                 ]
             }
