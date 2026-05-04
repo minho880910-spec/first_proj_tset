@@ -59,41 +59,41 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
                     </div>"""
                 st.markdown(f"<div style='{html_bg} padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; color: #a9b1d6;'>{items_html}</div>", unsafe_allow_html=True)
 
-        # --- [하단 왼쪽] 뜨거운 감자 (변수 바인딩 수정 부분) ---
+        # --- [하단 왼쪽] 뜨거운 감자 (변수 바인딩 완전 해결) ---
         with hot_discussion_container:
             hot_discussions = main_data.get('hot_discussions', [])
             if hot_discussions:
                 cols = st.columns(3)
                 for i, disc in enumerate(hot_discussions[:3]):
                     with cols[i]:
-                        # AI 데이터를 변수에 할당
-                        title = disc.get('title', '인기 게시글')
-                        replies = disc.get('replies', 0)
-                        quotes = disc.get('quotes', 0)
-                        handle = disc.get('handle', '@user')
-                        author = disc.get('author', '사용자')
-                        content = disc.get('content', '내용을 불러올 수 없습니다.')
+                        # 데이터 안전하게 추출
+                        d_title = disc.get('title', '인기 게시글')
+                        d_replies = disc.get('replies', 0)
+                        d_quotes = disc.get('quotes', 0)
+                        d_handle = disc.get('handle', '@user')
+                        d_author = disc.get('author', '사용자')
+                        d_content = disc.get('content', '내용을 불러올 수 없습니다.')
 
-                        header = f"<div style='font-size: 14px; margin-bottom: 5px; font-weight: bold; color: #a9b1d6; height: 40px; overflow: hidden;'><span style='color: #4fc3f7;'>{i+1}</span> {title}</div>"
-                        stats = f"""
-                        <div style='font-size: 12px; margin-bottom: 8px;'>
-                            <span style='color: #00E5FF;'>↪ {replies}답글</span> &nbsp; 
-                            <span style='color: #00E5FF;'>{quotes}인용</span>
+                        # 카드 렌더링 (하드코딩 텍스트를 제거하고 변수 대입)
+                        st.markdown(f"""
+                        <div style='font-size: 14px; margin-bottom: 5px; font-weight: bold; color: #a9b1d6; height: 40px; overflow: hidden;'>
+                            <span style='color: #4fc3f7;'>{i+1}</span> {d_title}
                         </div>
-                        """
-                        # 하드코딩된 '김지혜' 등을 지우고 중괄호 변수 {handle}, {author}, {content}로 교체
-                        card = f"""
+                        <div style='font-size: 12px; margin-bottom: 8px;'>
+                            <span style='color: #00E5FF;'>↪ {d_replies}답글</span> &nbsp; 
+                            <span style='color: #00E5FF;'>{d_quotes}인용</span>
+                        </div>
                         <div style='background-color: #1a1b26; border: 1px solid #292e42; border-radius: 12px; padding: 12px; color: #a9b1d6; min-height: 140px;'>
                             <div style='display: flex; align-items: center; margin-bottom: 8px;'>
                                 <div style='width: 30px; height: 30px; background-color: #448aff; border-radius: 50%; display: flex; justify-content: center; align-items: center; margin-right: 8px; font-size: 12px;'>👤</div>
                                 <div style='line-height: 1.1;'>
-                                    <div style='font-weight: bold; font-size: 12px; color: #fff;'>{handle}</div>
-                                    <div style='font-size: 10px; color: #888;'>{author}</div>
+                                    <div style='font-weight: bold; font-size: 12px; color: #fff;'>{d_handle}</div>
+                                    <div style='font-size: 10px; color: #888;'>{d_author}</div>
                                 </div>
                             </div>
-                            <div style='font-size: 12px; line-height: 1.5; height: 55px; overflow: hidden;'>{content}</div>
-                        </div>"""
-                        st.markdown(header + stats + card, unsafe_allow_html=True)
+                            <div style='font-size: 12px; line-height: 1.5; height: 55px; overflow: hidden;'>{d_content}</div>
+                        </div>
+                        """, unsafe_allow_html=True)
             else:
                 st.info("실시간 반응을 분석 중입니다.")
 
