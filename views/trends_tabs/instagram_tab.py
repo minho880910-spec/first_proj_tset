@@ -38,14 +38,14 @@ def render(tab_name: str, categories: list, prompt_input: str, global_main_keywo
             subcol1, subcol2, subcol3 = st.columns(3)
             with subcol1:
                 st.caption("📱 미디어 유형")
-                df = main_data.get('device_ratio')
-                if df is not None:
-                    # 인스타그램용 라벨 교체
-                    df['device'] = df['device'].replace({'모바일': '릴스', 'PC': '게시물'})
-                    c = alt.Chart(df).mark_arc(innerRadius=50).encode(
-                        theta="value:Q", color=alt.Color("device:N", scale=alt.Scale(range=['#00FF00', '#FF00FF'])), tooltip=['device', 'value']
+                df_media = main_data.get('media_ratio')
+                if df_media is not None and not df_media.empty:
+                    chart = alt.Chart(df_media).mark_arc(innerRadius=50).encode(
+                        theta=alt.Theta(field="value", type="quantitative"),
+                        color=alt.Color(field="type", type="nominal"),
+                        tooltip=['type', 'value']
                     ).properties(height=180)
-                    st.altair_chart(c, use_container_width=True)
+                    st.altair_chart(chart, use_container_width=True)
             with subcol2:
                 st.caption("👫 성별 비중")
                 df = main_data.get('gender_ratio')
