@@ -64,8 +64,7 @@ def render(tab_name: str, prompt_input: str, global_main_keyword: str):
             st.write("") # 간격 조절용
             
             # 2. 하단: 함께 많이 찾는 질문 (FAQ)
-            st.markdown("#### ❓ FAQ ❓")
-            st.caption("관련 질문 리스트")
+            st.markdown("#### ❓ 관련 질문 리스트 ❓")
             faqs = main_data.get('faqs', [])
             if faqs:
                 # 배경색을 살짝 넣어 연관 키워드 영역과 구분
